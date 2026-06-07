@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import "./globals.css";
+
 export const metadata = {
   title: "Job Tracker",
   description: "Personal job application tracker"

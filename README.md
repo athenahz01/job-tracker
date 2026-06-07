@@ -38,6 +38,8 @@ The application intake route is `POST /api/applications`. Send the shared secret
 
 Check liveness and Supabase connectivity at `GET /api/health`.
 
+The dashboard is the home page. Set `DASHBOARD_PASSWORD` in Vercel to require a passphrase before showing personal data. Leave it empty for local development.
+
 ## Gmail OAuth
 
 Use the readonly scope only: `https://www.googleapis.com/auth/gmail.readonly`.
@@ -104,4 +106,4 @@ Vercel root directory: `web`
 
 Railway root directory: `worker`
 
-Phase 2 builds the dashboard UI. Phase 3 builds the Chrome extension.
+Phase 3 builds the Chrome extension.
