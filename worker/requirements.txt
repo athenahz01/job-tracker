@@ -1,0 +1,8 @@
+apscheduler==3.11.2
+supabase==2.31.0
+google-api-python-client==2.197.0
+google-auth==2.53.0
+google-auth-oauthlib==1.4.0
+anthropic==0.107.1
+python-dotenv==1.2.2
+pytest==9.0.3
