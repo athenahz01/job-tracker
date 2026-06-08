@@ -8,3 +8,16 @@ export function stageClass(stage: Stage) {
 export function priorityClass(priority: Priority | null) {
   return priority ? `priority-${priority.toLowerCase()}` : "priority-empty";
 }
+
+export function fitScoreClass(score: number | null) {
+  if (score === null) {
+    return "fit-empty";
+  }
+  if (score >= 70) {
+    return "fit-high";
+  }
+  if (score >= 40) {
+    return "fit-medium";
+  }
+  return "fit-low";
+}

@@ -126,6 +126,7 @@ textarea {
 .network-section,
 .followups-section,
 .outreach-section,
+.profile-section,
 .login-box {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -301,7 +302,8 @@ textarea {
 
 .table-view,
 .network-section,
-.followups-section {
+.followups-section,
+.profile-section {
   margin-bottom: 18px;
   padding: 16px;
 }
@@ -400,7 +402,7 @@ textarea {
 
 .applications-table td:nth-child(1),
 .applications-table td:nth-child(2),
-.applications-table td:nth-child(7),
+.applications-table td:nth-child(9),
 .contacts-table td:nth-child(1) {
   white-space: normal;
 }
@@ -480,6 +482,37 @@ textarea {
 .tag-chip {
   background: #eef3f7;
   color: #4f6370;
+}
+
+.fit-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.fit-high {
+  background: #ddf4e3;
+  color: #236b38;
+}
+
+.fit-medium {
+  background: #fff0bd;
+  color: #8a6500;
+}
+
+.fit-low {
+  background: #fae2df;
+  color: #9d3d34;
+}
+
+.fit-empty {
+  background: #ecefed;
+  color: #596862;
 }
 
 .chip-row {
@@ -749,11 +782,20 @@ textarea {
 }
 
 .tracker-form,
-.contact-form {
+.contact-form,
+.profile-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 12px;
   width: 100%;
+}
+
+.profile-form {
+  margin-top: 14px;
+}
+
+.profile-form textarea {
+  min-height: 520px;
 }
 
 .tracker-editor {
@@ -767,6 +809,48 @@ textarea {
   border-radius: 8px;
   background: var(--panel-warm);
   padding: 12px;
+}
+
+.ai-action-panel {
+  display: grid;
+}
+
+.ai-heading {
+  align-items: flex-start;
+}
+
+.ai-result-grid,
+.draft-grid {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+}
+
+.ai-result-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.ai-result-grid div {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.ai-result-grid dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ai-result-grid dd {
+  display: grid;
+  gap: 6px;
+  margin: 6px 0 0;
+}
+
+.draft-grid textarea {
+  min-height: 150px;
 }
 
 .inline-editor summary,

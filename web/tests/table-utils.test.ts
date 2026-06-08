@@ -29,7 +29,8 @@ describe("table utilities", () => {
         tag: "remote",
         priority: "High",
         orphanOnly: true,
-        activeOnly: true
+        activeOnly: true,
+        highFitOnly: false
       }
     });
   });
@@ -65,13 +66,36 @@ describe("table utilities", () => {
         tag: "remote",
         priority: "High",
         orphanOnly: false,
-        activeOnly: false
+        activeOnly: false,
+        highFitOnly: false
       },
       "last_activity",
       "desc"
     );
 
     expect(result.map((row) => row.company)).toEqual(["Acme Labs", "Acme"]);
+  });
+
+  it("filters high fit rows and sorts by fit score", () => {
+    const rows = [
+      application({ company: "Low", fit_score: 39 }),
+      application({ company: "Medium", fit_score: 69 }),
+      application({ company: "High", fit_score: 88 }),
+      application({ company: "Higher", fit_score: 94 })
+    ];
+
+    const result = filterAndSortApplications(
+      rows,
+      {
+        orphanOnly: false,
+        activeOnly: false,
+        highFitOnly: true
+      },
+      "fit_score",
+      "desc"
+    );
+
+    expect(result.map((row) => row.company)).toEqual(["Higher", "High"]);
   });
 });
 
@@ -98,6 +122,13 @@ function application(overrides: Partial<ApplicationRow>): ApplicationRow {
     priority: null,
     tags: [],
     resume_version: null,
+    fit_score: null,
+    fit_summary: null,
+    missing_keywords: [],
+    scored_at: null,
+    ai_tailored_bullets: [],
+    ai_cover_letter: null,
+    tailored_at: null,
     first_seen: "2026-01-01T00:00:00.000Z",
     last_activity: "2026-01-01T00:00:00.000Z",
     created_at: "2026-01-01T00:00:00.000Z",

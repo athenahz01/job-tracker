@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Fragment, useMemo } from "react";
 
+import FitScoreBadge from "./FitScoreBadge";
 import type { ApplicationRow } from "../lib/dashboard-data";
 import { stageClass, priorityClass } from "../lib/style-utils";
 import {
@@ -25,6 +26,7 @@ const columns: { key: SortKey; label: string }[] = [
   { key: "company", label: "Company" },
   { key: "role", label: "Role" },
   { key: "stage", label: "Stage" },
+  { key: "fit_score", label: "Fit" },
   { key: "priority", label: "Priority" },
   { key: "salary", label: "Salary" },
   { key: "location", label: "Location" },
@@ -38,6 +40,9 @@ const exportHeaders = [
   "Company",
   "Role",
   "Stage",
+  "Fit score",
+  "Fit summary",
+  "Missing keywords",
   "Priority",
   "Tags",
   "Salary",
@@ -144,6 +149,7 @@ export default function ApplicationTableView({ applications, state }: Applicatio
 
       <div className="quick-filters" aria-label="Quick filters">
         <Link href={quickFilterHref("active")}>Active</Link>
+        <Link href={quickFilterHref("high-fit")}>High fit</Link>
         <Link href={quickFilterHref("follow-up")}>Needs follow-up</Link>
         <Link href={quickFilterHref("offers")}>Offers</Link>
         <Link href={quickFilterHref("rejected")}>Rejected</Link>
@@ -198,6 +204,9 @@ export default function ApplicationTableView({ applications, state }: Applicatio
                     <span className={`stage-pill ${stageClass(application.stage)}`}>
                       {application.stage}
                     </span>
+                  </td>
+                  <td>
+                    <FitScoreBadge score={application.fit_score} />
                   </td>
                   <td>
                     {application.priority ? (
@@ -263,6 +272,9 @@ function exportRows(rows: ApplicationRow[]) {
     row.company,
     row.role || "",
     row.stage,
+    row.fit_score === null ? "" : String(row.fit_score),
+    row.fit_summary || "",
+    row.missing_keywords.join(", "),
     row.priority || "",
     row.tags.join(", "),
     row.salary || "",

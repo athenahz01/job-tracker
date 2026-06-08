@@ -29,6 +29,13 @@ export type ApplicationRow = {
   priority: Priority | null;
   tags: string[];
   resume_version: string | null;
+  fit_score: number | null;
+  fit_summary: string | null;
+  missing_keywords: string[];
+  scored_at: string | null;
+  ai_tailored_bullets: string[];
+  ai_cover_letter: string | null;
+  tailored_at: string | null;
   first_seen: string;
   last_activity: string;
   created_at: string;
@@ -121,6 +128,12 @@ export type FollowUpItem = {
   stage?: Stage;
 };
 
+export type ProfileRow = {
+  id: number;
+  resume_text: string | null;
+  updated_at: string;
+};
+
 const activeFlowStages = [
   "Applied",
   "Assessment",
@@ -156,6 +169,21 @@ export async function getDashboardData() {
     applications: normalizeApplications(applicationsResponse.data),
     recruiterOutreach: normalizeApplications(recruiterResponse.data)
   };
+}
+
+export async function getProfileData(): Promise<ProfileRow | null> {
+  const supabase = createSupabaseServerClient();
+  const response = await supabase
+    .from("profile")
+    .select("id, resume_text, updated_at")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (response.error) {
+    throw new Error("Could not load profile.");
+  }
+
+  return (response.data as ProfileRow | null) ?? null;
 }
 
 export async function getApplicationFlowData(): Promise<ApplicationFlowData> {
@@ -319,7 +347,16 @@ function normalizeApplications(rows: unknown): ApplicationRow[] {
     salary: row.salary ?? null,
     location: row.location ?? null,
     deadline: row.deadline ?? null,
-    resume_version: row.resume_version ?? null
+    resume_version: row.resume_version ?? null,
+    fit_score: typeof row.fit_score === "number" ? row.fit_score : null,
+    fit_summary: row.fit_summary ?? null,
+    missing_keywords: Array.isArray(row.missing_keywords) ? row.missing_keywords : [],
+    scored_at: row.scored_at ?? null,
+    ai_tailored_bullets: Array.isArray(row.ai_tailored_bullets)
+      ? row.ai_tailored_bullets
+      : [],
+    ai_cover_letter: row.ai_cover_letter ?? null,
+    tailored_at: row.tailored_at ?? null
   }));
 }
 

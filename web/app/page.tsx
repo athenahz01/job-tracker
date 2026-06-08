@@ -4,11 +4,13 @@ import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
 import ApplicationTableView from "../components/ApplicationTableView";
 import ContactsSection from "../components/ContactsSection";
 import FollowUpsView from "../components/FollowUpsView";
+import ProfileView from "../components/ProfileView";
 import {
   getApplicationFlowData,
   getDashboardData,
   getFollowUpsData,
   getNetworkData,
+  getProfileData,
   type ApplicationRow
 } from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
@@ -27,19 +29,21 @@ const tabs: { view: DashboardView; label: string }[] = [
   { view: "board", label: "Board" },
   { view: "flow", label: "Flow" },
   { view: "follow-ups", label: "Follow-ups" },
-  { view: "network", label: "Network" }
+  { view: "network", label: "Network" },
+  { view: "profile", label: "Profile" }
 ];
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const state = parseTableState(params);
   const status = readSingle(params.status);
-  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network] =
+  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profile] =
     await Promise.all([
       getDashboardData(),
       getApplicationFlowData(),
       getFollowUpsData(state.quietDays),
-      getNetworkData()
+      getNetworkData(),
+      state.view === "profile" ? getProfileData() : Promise.resolve(null)
     ]);
   const boardApplications = filterAndSortApplications(
     [...applications],
@@ -107,6 +111,8 @@ export default async function Home({ searchParams }: HomeProps) {
           <RecruiterOutreach outreach={recruiterOutreach} />
         </>
       ) : null}
+
+      {state.view === "profile" ? <ProfileView profile={profile} /> : null}
     </main>
   );
 }
@@ -267,7 +273,9 @@ function statusMessage(status: string) {
     contact_saved: "Contact saved.",
     contact_deleted: "Contact deleted.",
     contact_invalid: "That contact request was not valid.",
-    contact_error: "The contact could not be saved."
+    contact_error: "The contact could not be saved.",
+    profile_saved: "Master resume saved.",
+    profile_error: "The master resume could not be saved."
   };
 
   return messages[status] ?? "Done.";

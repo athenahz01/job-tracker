@@ -3,10 +3,13 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import ContactsSection from "../../../components/ContactsSection";
+import FitScoreBadge from "../../../components/FitScoreBadge";
 import MergeForm from "../../../components/MergeForm";
 import {
   clearStageLockAction,
   setStageAction,
+  scoreApplicationFitAction,
+  tailorApplicationAction,
   updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
@@ -78,6 +81,9 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           </DetailValue>
           <DetailValue label="First seen">{formatDate(application.first_seen)}</DetailValue>
           <DetailValue label="Source">{application.source || "Not set"}</DetailValue>
+          <DetailValue label="Fit">
+            <FitScoreBadge score={application.fit_score} />
+          </DetailValue>
           <DetailValue label="Company domain">
             {application.company_domain || "Not set"}
           </DetailValue>
@@ -110,6 +116,99 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           {application.notes ? <DetailValue label="Notes">{application.notes}</DetailValue> : null}
         </dl>
       </section>
+
+      {!isRecruiterOutreach ? (
+        <section className="action-panel ai-action-panel">
+          <div className="section-heading ai-heading">
+            <div>
+              <p className="eyebrow">Resume match</p>
+              <h2>Fit Score</h2>
+            </div>
+            <form action={scoreApplicationFitAction}>
+              <input type="hidden" name="applicationId" value={application.id} />
+              <button className="primary-button" type="submit">
+                Score fit
+              </button>
+            </form>
+          </div>
+          <dl className="ai-result-grid">
+            <div>
+              <dt>Score</dt>
+              <dd>
+                <FitScoreBadge score={application.fit_score} />
+                {application.scored_at ? (
+                  <span className="muted">Scored {formatDate(application.scored_at)}</span>
+                ) : null}
+              </dd>
+            </div>
+            <div>
+              <dt>Summary</dt>
+              <dd>{application.fit_summary || "Not scored yet."}</dd>
+            </div>
+            <div>
+              <dt>Missing keywords</dt>
+              <dd>
+                <span className="chip-row">
+                  {application.missing_keywords.length ? (
+                    application.missing_keywords.map((keyword) => (
+                      <span className="tag-chip" key={keyword}>
+                        {keyword}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="muted">None saved</span>
+                  )}
+                </span>
+              </dd>
+            </div>
+          </dl>
+        </section>
+      ) : null}
+
+      {!isRecruiterOutreach ? (
+        <section className="action-panel ai-action-panel">
+          <div className="section-heading ai-heading">
+            <div>
+              <p className="eyebrow">Drafts</p>
+              <h2>Tailoring</h2>
+              <p className="muted">Drafts to adapt before using.</p>
+            </div>
+            <form action={tailorApplicationAction}>
+              <input type="hidden" name="applicationId" value={application.id} />
+              <button className="primary-button" type="submit">
+                Generate tailoring
+              </button>
+            </form>
+          </div>
+          <div className="draft-grid">
+            <label className="field wide-field">
+              <span>Resume bullets</span>
+              <textarea
+                readOnly
+                rows={Math.max(5, application.ai_tailored_bullets.length + 1)}
+                defaultValue={
+                  application.ai_tailored_bullets.length
+                    ? application.ai_tailored_bullets.map((bullet) => `- ${bullet}`).join("\n")
+                    : ""
+                }
+                placeholder="No tailoring bullets saved yet."
+              />
+            </label>
+            <label className="field wide-field">
+              <span>Cover letter draft</span>
+              <textarea
+                readOnly
+                rows={8}
+                defaultValue={application.ai_cover_letter ?? ""}
+                placeholder="No cover letter draft saved yet."
+              />
+            </label>
+            {application.tailored_at ? (
+              <p className="muted">Generated {formatDate(application.tailored_at)}</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {!isRecruiterOutreach ? (
         <section className="action-panel tracker-editor">
@@ -287,6 +386,11 @@ function statusMessage(status: string) {
     lock_cleared: "Automation lock cleared.",
     merged: "Orphan merged into this application.",
     tracker_saved: "Tracker fields saved.",
+    fit_scored: "Fit score saved.",
+    resume_missing: "Save a master resume in Profile first.",
+    fit_error: "The fit score could not be saved.",
+    tailor_saved: "Tailoring drafts saved.",
+    tailor_error: "The tailoring drafts could not be saved.",
     contact_saved: "Contact saved.",
     contact_deleted: "Contact deleted.",
     contact_invalid: "That contact request was not valid.",

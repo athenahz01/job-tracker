@@ -4,6 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { requireDashboardAccess } from "./dashboard-auth";
+import {
+  saveProfileResume,
+  scoreApplicationFit,
+  tailorApplication
+} from "./resume-fit";
 import { createSupabaseServerClient } from "./supabase";
 import { type Stage, stages } from "./stages";
 import { isPriority, isRelationship } from "./tracker";
@@ -169,6 +174,33 @@ export async function updateApplicationTrackerFieldsAction(formData: FormData) {
 
   revalidateApplicationViews(id);
   redirectWithStatus(id, "tracker_saved");
+}
+
+export async function saveProfileAction(formData: FormData) {
+  const status = await saveProfileResume(readString(formData.get("resumeText")));
+
+  revalidatePath("/");
+  redirect(`/?view=profile&status=${encodeURIComponent(status)}`);
+}
+
+export async function scoreApplicationFitAction(formData: FormData) {
+  const id = readString(formData.get("applicationId"));
+  const status = await scoreApplicationFit(id);
+
+  if (status === "fit_scored") {
+    revalidateApplicationViews(id);
+  }
+  redirectWithStatus(id, status);
+}
+
+export async function tailorApplicationAction(formData: FormData) {
+  const id = readString(formData.get("applicationId"));
+  const status = await tailorApplication(id);
+
+  if (status === "tailor_saved") {
+    revalidateApplicationViews(id);
+  }
+  redirectWithStatus(id, status);
 }
 
 export async function createContactAction(formData: FormData) {

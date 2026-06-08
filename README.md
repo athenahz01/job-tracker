@@ -17,6 +17,10 @@ Apply `supabase/migrations/0001_init.sql` to a fresh Supabase project. It create
 
 Then apply `supabase/migrations/0002_categories.sql`. It adds application kinds and email categories so recruiter outreach can stay separate from the application board.
 
+Then apply `supabase/migrations/0003_tracker_fields.sql`. It adds manual tracker fields for planning, follow-ups, and network context.
+
+Then apply `supabase/migrations/0004_resume_fit.sql`. It adds the single-row profile table for the master resume and AI fit and tailoring fields on applications.
+
 ## Web
 
 ```bash
@@ -39,6 +43,8 @@ The application intake route is `POST /api/applications`. Send the shared secret
 Check liveness and Supabase connectivity at `GET /api/health`.
 
 The dashboard is the home page. Set `DASHBOARD_PASSWORD` in Vercel to require a passphrase before showing personal data. Leave it empty for local development.
+
+Set `ANTHROPIC_API_KEY` in `web/.env.local` for local fit scoring and tailoring, and in the Vercel project for production. `ANTHROPIC_MODEL` is optional and defaults to `claude-haiku-4-5`.
 
 ## Gmail OAuth
 

@@ -2,7 +2,7 @@ import type { ApplicationRow } from "./dashboard-data";
 import { type Stage, stages } from "./stages";
 import { activeApplicationStages, isPriority, Priority } from "./tracker";
 
-export type DashboardView = "table" | "board" | "flow" | "follow-ups" | "network";
+export type DashboardView = "table" | "board" | "flow" | "follow-ups" | "network" | "profile";
 
 export type TableFilters = {
   stage?: Stage;
@@ -11,12 +11,14 @@ export type TableFilters = {
   priority?: Priority;
   orphanOnly: boolean;
   activeOnly: boolean;
+  highFitOnly: boolean;
 };
 
 export type SortKey =
   | "company"
   | "role"
   | "stage"
+  | "fit_score"
   | "priority"
   | "salary"
   | "location"
@@ -35,11 +37,12 @@ export type TableState = {
   quietDays: number;
 };
 
-const views: DashboardView[] = ["table", "board", "flow", "follow-ups", "network"];
+const views: DashboardView[] = ["table", "board", "flow", "follow-ups", "network", "profile"];
 const sortKeys: SortKey[] = [
   "company",
   "role",
   "stage",
+  "fit_score",
   "priority",
   "salary",
   "location",
@@ -70,7 +73,8 @@ export function parseTableState(
           ? priorityValue
           : undefined,
       orphanOnly: readSingle(params.orphan) === "1",
-      activeOnly: readSingle(params.active) === "1"
+      activeOnly: readSingle(params.active) === "1",
+      highFitOnly: readSingle(params.fit) === "high"
     },
     sortKey: sortKeys.includes(sortValue as SortKey) ? (sortValue as SortKey) : "last_activity",
     sortDirection: directionValue === "asc" ? "asc" : "desc",
@@ -100,6 +104,9 @@ export function filterAndSortApplications(
     if (filters.activeOnly && !activeApplicationStages.includes(row.stage)) {
       return false;
     }
+    if (filters.highFitOnly && (row.fit_score ?? -1) < 70) {
+      return false;
+    }
     if (tag && !row.tags.some((value) => value.toLowerCase() === tag)) {
       return false;
     }
@@ -118,7 +125,9 @@ export function filterAndSortApplications(
   return filtered.sort((left, right) => compareRows(left, right, sortKey, sortDirection));
 }
 
-export function quickFilterHref(filter: "active" | "follow-up" | "offers" | "rejected") {
+export function quickFilterHref(
+  filter: "active" | "follow-up" | "offers" | "rejected" | "high-fit"
+) {
   const params = new URLSearchParams({ view: "table" });
   if (filter === "offers") {
     params.set("stage", "Offer");
@@ -131,6 +140,11 @@ export function quickFilterHref(filter: "active" | "follow-up" | "offers" | "rej
   }
   if (filter === "active") {
     params.set("active", "1");
+  }
+  if (filter === "high-fit") {
+    params.set("fit", "high");
+    params.set("sort", "fit_score");
+    params.set("dir", "desc");
   }
 
   const value = params.toString();
@@ -159,6 +173,9 @@ function compareRows(
 function valueForSort(row: ApplicationRow, sortKey: SortKey) {
   if (sortKey === "follow_up_on" || sortKey === "last_activity") {
     return row[sortKey] ? Date.parse(row[sortKey] as string) || 0 : 0;
+  }
+  if (sortKey === "fit_score") {
+    return row.fit_score ?? -1;
   }
   return String(row[sortKey] ?? "").toLowerCase();
 }
