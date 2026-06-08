@@ -1,6 +1,6 @@
-import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
+import { extensionSecretMatches } from "../../../lib/extension-auth";
 import { createSupabaseServerClient } from "../../../lib/supabase";
 import { resolveForwardStage, stageRank, type Stage } from "../../../lib/stages";
 
@@ -20,20 +20,6 @@ const dedupeWindowDays = 5;
 const extensionStages = new Set<Stage>(["Saved", "Applied"]);
 const maxTags = 20;
 const maxTagLength = 40;
-
-function secretsMatch(provided: string | null, expected: string | undefined) {
-  if (!provided || !expected) {
-    return false;
-  }
-
-  const providedBuffer = Buffer.from(provided);
-  const expectedBuffer = Buffer.from(expected);
-
-  return (
-    providedBuffer.length === expectedBuffer.length &&
-    timingSafeEqual(providedBuffer, expectedBuffer)
-  );
-}
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
@@ -82,7 +68,7 @@ function parseExtensionStage(stage: unknown): Stage {
 export async function POST(request: NextRequest) {
   const providedSecret = request.headers.get("x-extension-api-secret");
 
-  if (!secretsMatch(providedSecret, process.env.EXTENSION_API_SECRET)) {
+  if (!extensionSecretMatches(providedSecret, process.env.EXTENSION_API_SECRET)) {
     return NextResponse.json({ message: "Unauthorized." }, { status: 401 });
   }
 

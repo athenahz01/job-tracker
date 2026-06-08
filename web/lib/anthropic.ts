@@ -58,7 +58,7 @@ export function buildFitScoringPrompt(input: FitPromptInput) {
     "Return exactly one JSON object and nothing else.",
     `The JSON shape must be exactly: ${FIT_SCORING_OUTPUT_SHAPE}`,
     "fit_score must be an integer from 0 to 100.",
-    "fit_summary must be one honest paragraph naming strengths and gaps.",
+    "fit_summary must be a short verdict of two to three sentences, roughly 50 to 60 words, naming the biggest strength and the biggest gap.",
     "missing_keywords must be important terms from the job posting that are absent from the resume.",
     "Use calibrated scoring. Do not inflate the score to be encouraging.",
     "",

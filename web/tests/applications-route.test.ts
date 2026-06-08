@@ -185,6 +185,8 @@ vi.mock("../lib/supabase", () => ({
   createSupabaseServerClient: mockSupabase.createClient
 }));
 
+vi.mock("server-only", () => ({}));
+
 import { POST } from "../app/api/applications/route";
 
 describe("applications route", () => {

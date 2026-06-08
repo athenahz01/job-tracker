@@ -10,6 +10,7 @@
     const description = findDescription();
     const salary = findSalary(bodyText);
     const jobLocation = findLocation(bodyText);
+    const tags = deriveTags(bodyText, jobLocation);
     const confirmation = Boolean(ats && hasConfirmationSignal(bodyText, ats));
     const genericSubmitted = Boolean(!ats && hasConfirmationSignal(bodyText, "generic"));
 
@@ -21,7 +22,7 @@
       notes: description,
       salary,
       location: jobLocation,
-      tags: [],
+      tags,
       confirmation,
       genericSubmitted
     };
@@ -40,6 +41,9 @@
     }
     if (host.includes("myworkdayjobs.com")) {
       return "workday";
+    }
+    if (host.includes("wellfound.com") || host.endsWith("angel.co")) {
+      return "wellfound";
     }
     return "";
   }
@@ -70,6 +74,13 @@
       workday: [
         "[data-automation-id='jobPostingHeader']",
         "[data-automation-id='jobTitle']",
+        "main h1",
+        "h1"
+      ],
+      wellfound: [
+        "[data-test='JobTitle']",
+        "[data-testid='job-title']",
+        "[class*='job-title' i]",
         "main h1",
         "h1"
       ]
@@ -122,6 +133,12 @@
       workday: [
         "[data-automation-id='jobPostingCompany']",
         "[data-automation-id='company']"
+      ],
+      wellfound: [
+        "[data-test='StartupName']",
+        "[data-testid='company-name']",
+        "[class*='company' i]",
+        "main a[href*='/company/']"
       ]
     };
     const selectorText = firstVisibleText(
@@ -180,6 +197,13 @@
       return tenant ? humanizeSlug(tenant) : "";
     }
 
+    if (ats === "wellfound") {
+      const companyIndex = pathParts.findIndex((part) => part === "company");
+      if (companyIndex !== -1 && pathParts[companyIndex + 1]) {
+        return humanizeSlug(pathParts[companyIndex + 1]);
+      }
+    }
+
     return "";
   }
 
@@ -205,7 +229,7 @@
   }
 
   function findSalary(bodyText) {
-    return (
+    return cleanSalary(
       firstVisibleText(
         [
           "[data-testid*='salary' i]",
@@ -351,11 +375,53 @@
   function payRangeFromText(text) {
     const normalized = shared.trimText(text, 20000);
     const rangePattern =
-      /(?:USD\s*)?\$\s?\d{2,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?\s?(?:-|to)\s?(?:USD\s*)?\$?\s?\d{2,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?(?:\s?(?:\/|per)\s?(?:year|yr|hour|hr|annum))?/;
+      /(?:USD\s*)?\$\s?\d{1,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?\s?(?:-|to|\u2013)\s?(?:USD\s*)?\$?\s?\d{1,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?(?:\s?(?:\/|per)\s?(?:year|yr|hour|hr|annum))?/;
     const singlePattern =
-      /(?:USD\s*)?\$\s?\d{2,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?(?:\s?(?:\/|per)\s?(?:year|yr|hour|hr|annum))/;
+      /(?:USD\s*)?\$\s?\d{1,3}(?:,\d{3})?(?:\.\d+)?\s?(?:k|K)?(?:\s?(?:\/|per)\s?(?:year|yr|hour|hr|annum))/;
     const match = normalized.match(rangePattern) || normalized.match(singlePattern);
     return match ? shared.trimText(match[0], 160) : "";
+  }
+
+  function deriveTags(bodyText, jobLocation) {
+    const normalized = shared.trimText(`${bodyText} ${jobLocation}`, 25000).toLowerCase();
+    const tags = [];
+
+    addTag(tags, workplaceTag(normalized));
+
+    if (/\bfull[-\s]?time\b/.test(normalized)) {
+      addTag(tags, "Full-time");
+    }
+    if (/\bpart[-\s]?time\b/.test(normalized)) {
+      addTag(tags, "Part-time");
+    }
+    if (/\b(contract|contractor)\b/.test(normalized)) {
+      addTag(tags, "Contract");
+    }
+    if (/\b(internship|intern)\b/.test(normalized)) {
+      addTag(tags, "Internship");
+    }
+
+    return tags.slice(0, 4);
+  }
+
+  function workplaceTag(text) {
+    if (/\bremote\b/.test(text)) {
+      return "Remote";
+    }
+    if (/\bhybrid\b/.test(text)) {
+      return "Hybrid";
+    }
+    if (/\bonsite\b|\bon-site\b|\bin office\b/.test(text)) {
+      return "Onsite";
+    }
+    return "";
+  }
+
+  function addTag(tags, tag) {
+    if (!tag || tags.some((existing) => existing.toLowerCase() === tag.toLowerCase())) {
+      return;
+    }
+    tags.push(tag);
   }
 
   function remoteFromText(text) {
@@ -415,12 +481,34 @@
   }
 
   function cleanLocation(value) {
-    return shared
+    const text = shared
       .trimText(value, 180)
       .replace(/^locations?:\s*/i, "")
       .replace(/^workplace:\s*/i, "")
       .replace(/^office:\s*/i, "")
       .trim();
+    return text.length > 120 ? shortLocation(text) : text;
+  }
+
+  function cleanSalary(value) {
+    const text = shared
+      .trimText(value, 160)
+      .replace(/^(compensation|salary|pay range|pay|base pay):\s*/i, "")
+      .trim();
+    if (!text) {
+      return "";
+    }
+    const range = payRangeFromText(text);
+    return range || text.slice(0, 160);
+  }
+
+  function shortLocation(value) {
+    const remote = remoteFromText(value);
+    if (remote) {
+      return remote;
+    }
+    const cityState = value.match(/\b[A-Z][a-zA-Z .'-]+,\s?[A-Z]{2}\b/);
+    return cityState ? cityState[0] : shared.trimText(value, 120);
   }
 
   function cleanLabeledText(value, maxLength) {

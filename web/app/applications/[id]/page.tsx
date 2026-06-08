@@ -142,11 +142,11 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               </dd>
             </div>
             <div>
-              <dt>Summary</dt>
+              <dt>Verdict</dt>
               <dd>{application.fit_summary || "Not scored yet."}</dd>
             </div>
             <div>
-              <dt>Missing keywords</dt>
+              <dt>Gaps to close</dt>
               <dd>
                 <span className="chip-row">
                   {application.missing_keywords.length ? (

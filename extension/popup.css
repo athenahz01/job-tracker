@@ -105,3 +105,72 @@ input {
   background: #fff0f0;
   color: #a8483f;
 }
+
+.fit-result {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #d9ded8;
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.fit-result[hidden] {
+  display: none;
+}
+
+.fit-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.fit-result p {
+  margin: 0;
+  color: #18211f;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.fit-badge,
+.fit-gaps span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.fit-high {
+  background: #ddf4e3;
+  color: #236b38;
+}
+
+.fit-medium {
+  background: #fff0bd;
+  color: #8a6500;
+}
+
+.fit-low {
+  background: #fae2df;
+  color: #9d3d34;
+}
+
+.fit-empty {
+  background: #ecefed;
+  color: #596862;
+}
+
+.fit-gaps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.fit-gaps span {
+  background: #eef3f7;
+  color: #4f6370;
+}

@@ -19,10 +19,17 @@ type ProfileRecord = {
   resume_text: string | null;
 };
 
-type FitResult = {
+export type FitResult = {
   fit_score: number;
   fit_summary: string;
   missing_keywords: string[];
+};
+
+export type FitScoreInput = {
+  company: string;
+  role: string | null;
+  jobDescription: string | null;
+  resumeText: string;
 };
 
 type TailoringResult = {
@@ -80,15 +87,14 @@ export async function scoreApplicationFit(applicationId: string): Promise<FitSco
 
   let parsed: FitResult | null = null;
   try {
-    const result = await scoreFitWithClaude({
+    parsed = await scoreJobFit({
       company: application.company,
       role: application.role,
       jobDescription: application.notes,
       resumeText
     });
-    parsed = normalizeFitResult(result);
-  } catch (error) {
-    console.error("Could not score application fit.", error);
+  } catch {
+    console.error("Could not score application fit.");
   }
 
   if (!parsed) {
@@ -112,6 +118,11 @@ export async function scoreApplicationFit(applicationId: string): Promise<FitSco
   }
 
   return "fit_scored";
+}
+
+export async function scoreJobFit(input: FitScoreInput): Promise<FitResult | null> {
+  const result = await scoreFitWithClaude(input);
+  return normalizeFitResult(result);
 }
 
 export async function tailorApplication(applicationId: string): Promise<TailoringStatus> {
@@ -181,7 +192,7 @@ export function normalizeFitResult(value: unknown): FitResult | null {
 
   return {
     fit_score: clamp(Math.round(rawScore), 0, 100),
-    fit_summary: cleanInlineText(value.fit_summary, 1800) ?? "",
+    fit_summary: cleanInlineText(value.fit_summary, 700) ?? "",
     missing_keywords: cleanTextArray(value.missing_keywords, 20, 80)
   };
 }

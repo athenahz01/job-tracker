@@ -11,6 +11,9 @@
     "https://job-boards.greenhouse.io/*",
     "https://jobs.lever.co/*",
     "https://*.ashbyhq.com/*",
+    "https://wellfound.com/*",
+    "https://angel.co/*",
+    "https://*.angel.co/*",
     "https://*.myworkdayjobs.com/*",
     "https://*.wd1.myworkdayjobs.com/*",
     "https://*.wd3.myworkdayjobs.com/*"
@@ -30,6 +33,9 @@
         "https://job-boards.greenhouse.io/*",
         "https://jobs.lever.co/*",
         "https://*.ashbyhq.com/*",
+        "https://wellfound.com/*",
+        "https://angel.co/*",
+        "https://*.angel.co/*",
         "https://*.myworkdayjobs.com/*",
         "https://*.wd1.myworkdayjobs.com/*",
         "https://*.wd3.myworkdayjobs.com/*"

@@ -1,9 +1,11 @@
 (function runPopup() {
   const shared = window.JobTrackerShared;
   const saveButton = document.getElementById("save-current");
+  const checkFitButton = document.getElementById("check-fit");
   const optionsButton = document.getElementById("open-options");
   const settingsMessage = document.getElementById("settings-message");
   const status = document.getElementById("status");
+  const fitResult = document.getElementById("fit-result");
   const manualForm = document.getElementById("manual-form");
   const companyInput = document.getElementById("company");
   const roleInput = document.getElementById("role");
@@ -22,8 +24,10 @@
     const ready = shared.settingsAreReady(settings);
     settingsMessage.hidden = ready;
     saveButton.disabled = !ready;
+    checkFitButton.disabled = !ready;
 
     saveButton.addEventListener("click", handleSaveClick);
+    checkFitButton.addEventListener("click", handleCheckFitClick);
     optionsButton.addEventListener("click", () => chrome.runtime.openOptionsPage());
     manualForm.addEventListener("submit", handleManualSubmit);
   }
@@ -56,6 +60,41 @@
       setStatus(error instanceof Error ? error.message : "Could not read this page.", "error");
     } finally {
       saveButton.disabled = false;
+    }
+  }
+
+  async function handleCheckFitClick() {
+    clearStatus();
+    clearFitResult();
+    checkFitButton.disabled = true;
+
+    try {
+      const capture = await scrapeActiveTab();
+      if (capture.company || capture.role || capture.location || capture.salary || capture.tags) {
+        pendingCapture = capture;
+        populateForm(capture, pendingStage);
+      }
+
+      setStatus("Checking fit...", "");
+      const response = await chrome.runtime.sendMessage({
+        type: "CHECK_FIT",
+        capture
+      });
+
+      if (!response || !response.ok) {
+        setStatus(
+          response && response.message ? response.message : "Could not check fit for this job.",
+          "error"
+        );
+        return;
+      }
+
+      renderFitResult(response);
+      setStatus("Fit checked.", "success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not check fit.", "error");
+    } finally {
+      checkFitButton.disabled = false;
     }
   }
 
@@ -138,5 +177,65 @@
 
   function clearStatus() {
     setStatus("", "");
+  }
+
+  function renderFitResult(result) {
+    const score = Number.isFinite(result.fit_score) ? Math.round(result.fit_score) : null;
+    const keywords = Array.isArray(result.missing_keywords)
+      ? result.missing_keywords.slice(0, 5)
+      : [];
+
+    fitResult.hidden = false;
+    fitResult.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "fit-result-header";
+
+    const title = document.createElement("strong");
+    title.textContent = "Fit";
+    header.append(title);
+
+    const badge = document.createElement("span");
+    badge.className = `fit-badge ${fitClass(score)}`;
+    badge.textContent = score === null ? "Not scored" : String(score);
+    header.append(badge);
+    fitResult.append(header);
+
+    const summary = document.createElement("p");
+    summary.textContent = result.fit_summary || "No verdict returned.";
+    fitResult.append(summary);
+
+    const gaps = document.createElement("div");
+    gaps.className = "fit-gaps";
+    if (keywords.length) {
+      for (const keyword of keywords) {
+        const chip = document.createElement("span");
+        chip.textContent = keyword;
+        gaps.append(chip);
+      }
+    } else {
+      const empty = document.createElement("span");
+      empty.textContent = "No top gaps returned";
+      gaps.append(empty);
+    }
+    fitResult.append(gaps);
+  }
+
+  function clearFitResult() {
+    fitResult.hidden = true;
+    fitResult.innerHTML = "";
+  }
+
+  function fitClass(score) {
+    if (score === null) {
+      return "fit-empty";
+    }
+    if (score >= 70) {
+      return "fit-high";
+    }
+    if (score >= 40) {
+      return "fit-medium";
+    }
+    return "fit-low";
   }
 })();
