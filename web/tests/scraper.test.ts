@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const sharedSource = readFileSync("../extension/shared.js", "utf8");
 const scraperSource = readFileSync("../extension/scraper.js", "utf8");
+const postingCaptureSource = readFileSync("../extension/posting-capture.js", "utf8");
 
 describe("extension scraper", () => {
   it("extracts salary, location, role, and tags from sample markup", () => {
@@ -74,6 +75,76 @@ describe("extension scraper", () => {
 
     expect(scrape.location).toBe("New York, New York");
   });
+
+  it("discards a confirmation heading instead of using it as the role", () => {
+    const scrape = runScraper({
+      hostname: "jobs.lever.co",
+      href: "https://jobs.lever.co/acme/confirmation",
+      pathname: "/acme/confirmation",
+      title: "Thank you for applying",
+      markup: `
+        <main>
+          <h1>Thank you for applying</h1>
+          <p>Application submitted. We received your application.</p>
+        </main>
+      `
+    });
+
+    expect(scrape.role).toBe("");
+  });
+
+  it("uses a real role named in confirmation body text", () => {
+    const scrape = runScraper({
+      hostname: "jobs.lever.co",
+      href: "https://jobs.lever.co/acme/confirmation",
+      pathname: "/acme/confirmation",
+      title: "Thank you for applying",
+      markup: `
+        <main>
+          <h1>Thank you for applying</h1>
+          <p>Your application for the Product Strategy and Operations Associate role has been submitted.</p>
+        </main>
+      `
+    });
+
+    expect(scrape.role).toBe("Product Strategy and Operations Associate");
+  });
+
+  it("posting capture only accepts confident posting pages", () => {
+    const helpers = runPostingCapture({
+      hostname: "jobs.example.com",
+      href: "https://jobs.example.com/acme/backend-engineer",
+      pathname: "/acme/backend-engineer",
+      title: "Backend Engineer at Acme",
+      markup: `
+        <main>
+          <h1>Backend Engineer</h1>
+          <div data-testid="company-name">Acme</div>
+          <p>$120,000 - $150,000 per year</p>
+        </main>
+      `
+    });
+    const confidentPosting = {
+      url: "https://jobs.example.com/acme/backend-engineer",
+      company: "Acme",
+      role: "Backend Engineer",
+      salary: "$120,000 - $150,000 per year",
+      location: "",
+      confirmation: false,
+      genericSubmitted: false
+    };
+
+    expect(
+      helpers.isConfidentPosting(confidentPosting, "Thank you for applying. Application submitted.")
+    ).toBe(false);
+    expect(
+      helpers.isConfidentPosting(
+        { ...confidentPosting, salary: "", location: "" },
+        "Backend Engineer at Acme"
+      )
+    ).toBe(false);
+    expect(helpers.isConfidentPosting(confidentPosting, "Backend Engineer at Acme")).toBe(true);
+  });
 });
 
 function runScraper(input: {
@@ -109,6 +180,42 @@ function runScraper(input: {
   new Script(scraperSource).runInContext(context);
 
   return context.JobTrackerScraper.scrapeCurrentPage();
+}
+
+function runPostingCapture(input: {
+  hostname: string;
+  href: string;
+  pathname: string;
+  title: string;
+  markup: string;
+}) {
+  const context = createContext({
+    chrome: {
+      storage: {
+        local: {
+          get: () => undefined,
+          set: () => undefined
+        }
+      }
+    },
+    document: createDocument(input.markup, input.title),
+    globalThis: null,
+    location: {
+      hostname: input.hostname,
+      href: input.href,
+      pathname: input.pathname,
+      search: ""
+    },
+    URL,
+    URLSearchParams
+  });
+  context.globalThis = context;
+
+  new Script(sharedSource).runInContext(context);
+  new Script(scraperSource).runInContext(context);
+  new Script(postingCaptureSource).runInContext(context);
+
+  return context.JobTrackerPostingCapture;
 }
 
 function createDocument(markup: string, title: string) {

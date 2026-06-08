@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+from difflib import SequenceMatcher
 from typing import Any, Mapping
 
 from .classifier import classify_email
@@ -16,6 +18,17 @@ logger = logging.getLogger(__name__)
 
 RAW_SNIPPET_CHARS = 500
 WRITTEN_CATEGORIES = {"application_event", "recruiter_outreach"}
+POSTING_LOOKBACK_DAYS = 45
+ROLE_MATCH_THRESHOLD = 0.62
+PLACEHOLDER_PHRASES = (
+    "thank you for applying",
+    "thanks for applying",
+    "application received",
+    "application submitted",
+    "application has been submitted",
+    "your application was submitted",
+    "your application has been submitted",
+)
 
 
 @dataclass(frozen=True)
@@ -398,6 +411,21 @@ def _apply_matched_application(
     if sender_domain and not application.get("company_domain"):
         application_updates["company_domain"] = sender_domain
 
+    _add_identity_backfill_updates(application, classification, application_updates)
+
+    enriched_application = {**application, **application_updates}
+    application_updates.update(
+        _posting_enrichment_updates(
+            supabase,
+            enriched_application,
+            lookup_company=_as_string(enriched_application.get("company")),
+            lookup_role=(
+                _as_string(classification.get("role"))
+                or _as_string(enriched_application.get("role"))
+            ),
+        )
+    )
+
     if application_updates:
         _execute(
             supabase.table("applications")
@@ -447,6 +475,14 @@ def _create_orphan_application(
     if kind == "application":
         detected_stage = _as_string(classification.get("stage"))
         application_row["stage"] = detected_stage if detected_stage in STAGES else "Applied"
+        application_row.update(
+            _posting_enrichment_updates(
+                supabase,
+                application_row,
+                lookup_company=company,
+                lookup_role=_as_string(classification.get("role")),
+            )
+        )
 
     response = _execute(
         supabase.table("applications").insert(application_row),
@@ -476,6 +512,156 @@ def _create_orphan_application(
         matched_application_id=application_id,
         orphan_created=True,
     )
+
+
+def _add_identity_backfill_updates(
+    application: Mapping[str, Any],
+    classification: Mapping[str, Any],
+    updates: dict[str, Any],
+) -> None:
+    classified_role = _as_string(classification.get("role"))
+    if is_placeholder_text(application.get("role")) and _is_real_text(classified_role):
+        updates["role"] = classified_role
+
+    classified_company = _as_string(classification.get("company"))
+    if is_placeholder_text(application.get("company")) and _is_real_text(classified_company):
+        updates["company"] = classified_company
+        updates["normalized_company"] = normalize_company(classified_company)
+
+
+def _posting_enrichment_updates(
+    supabase: Any,
+    application: Mapping[str, Any],
+    lookup_company: str | None,
+    lookup_role: str | None,
+) -> dict[str, Any]:
+    try:
+        return _posting_enrichment_updates_inner(
+            supabase,
+            application,
+            lookup_company,
+            lookup_role,
+        )
+    except Exception:
+        logger.exception("posting enrichment lookup failed")
+        return {}
+
+
+def _posting_enrichment_updates_inner(
+    supabase: Any,
+    application: Mapping[str, Any],
+    lookup_company: str | None,
+    lookup_role: str | None,
+) -> dict[str, Any]:
+    if not lookup_company or not _is_real_text(lookup_role):
+        return {}
+
+    posting = _find_recent_posting(supabase, lookup_company, lookup_role)
+    if not posting:
+        return {}
+
+    updates: dict[str, Any] = {}
+    if not _as_string(application.get("salary")) and _as_string(posting.get("salary")):
+        updates["salary"] = _as_string(posting.get("salary"))
+
+    if not _as_string(application.get("location")) and _as_string(posting.get("location")):
+        updates["location"] = _as_string(posting.get("location"))
+
+    existing_tags = application.get("tags")
+    if not existing_tags and posting.get("tags"):
+        tags = _clean_tags(posting.get("tags"))
+        if tags:
+            updates["tags"] = tags
+
+    posting_role = _as_string(posting.get("role"))
+    if is_placeholder_text(application.get("role")) and _is_real_text(posting_role):
+        updates["role"] = posting_role
+
+    return updates
+
+
+def _find_recent_posting(
+    supabase: Any,
+    company: str,
+    role: str,
+) -> Mapping[str, Any] | None:
+    normalized_company = normalize_company(company)
+    if not normalized_company:
+        return None
+
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=POSTING_LOOKBACK_DAYS)).isoformat()
+    response = _execute(
+        supabase.table("job_postings")
+        .select("*")
+        .eq("normalized_company", normalized_company)
+        .gte("seen_at", cutoff)
+        .order("seen_at", desc=True),
+        "load recent job postings",
+    )
+    return _best_posting_match(_response_rows(response), role)
+
+
+def _best_posting_match(
+    postings: list[Mapping[str, Any]],
+    role: str,
+) -> Mapping[str, Any] | None:
+    target = _normalize_role_for_match(role)
+    if not target:
+        return None
+
+    best: Mapping[str, Any] | None = None
+    best_score = 0.0
+    for posting in postings:
+        candidate = _normalize_role_for_match(_as_string(posting.get("role")))
+        if not candidate:
+            continue
+        score = SequenceMatcher(None, target, candidate).ratio()
+        if target in candidate or candidate in target:
+            score = max(score, 0.9)
+        if score > best_score:
+            best_score = score
+            best = posting
+
+    return best if best is not None and best_score >= ROLE_MATCH_THRESHOLD else None
+
+
+def is_placeholder_text(value: Any) -> bool:
+    text = _as_string(value)
+    if not text or not text.strip():
+        return True
+
+    normalized = re.sub(r"\s+", " ", text).strip().lower()
+    return any(phrase in normalized for phrase in PLACEHOLDER_PHRASES)
+
+
+def _is_real_text(value: Any) -> bool:
+    return not is_placeholder_text(value)
+
+
+def _normalize_role_for_match(value: str | None) -> str:
+    if not value or is_placeholder_text(value):
+        return ""
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _clean_tags(value: Any) -> list[str]:
+    if not isinstance(value, (list, tuple)):
+        return []
+
+    seen: set[str] = set()
+    tags: list[str] = []
+    for item in value:
+        if not isinstance(item, str):
+            continue
+        tag = item.strip()[:40]
+        key = tag.lower()
+        if not tag or key in seen:
+            continue
+        seen.add(key)
+        tags.append(tag)
+        if len(tags) >= 20:
+            break
+    return tags
 
 
 def _update_event(

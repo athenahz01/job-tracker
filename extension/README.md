@@ -16,7 +16,7 @@ Manifest V3 Chrome extension for saving job applications to the web API.
 
 The popup saves the current job page with one click. Save adds the job to the Saved column so you can apply later. If the company cannot be found, it asks for the company before posting.
 
-The job becomes Applied when you submit it or when an email confirms the application. Greenhouse, Lever, Ashby, and Workday content scripts look for a submitted application confirmation before posting automatically. Generic submitted-page detection only runs from the popup through `activeTab`, so the extension does not need broad host access for every site.
+The job becomes Applied when you submit it or when an email confirms the application. Greenhouse, Lever, Ashby, and Workday content scripts look for a submitted application confirmation before posting automatically. A broad posting-capture content script also watches job pages for confident title plus salary or location signals so the app can enrich later application rows. This personal unpacked extension uses broad host access for that cache, and it ignores thank-you and submitted confirmation pages.
 
 The extension stores a short recent URL memory in `chrome.storage.local` so refreshes and repeat clicks do not post the same job again.
 

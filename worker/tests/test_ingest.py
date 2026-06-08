@@ -16,6 +16,7 @@ class FakeSupabase:
     def __init__(self) -> None:
         self.tables: dict[str, list[dict[str, Any]]] = {
             "email_events": [],
+            "job_postings": [],
             "applications": [
                 {
                     "id": "app-1",
@@ -25,6 +26,10 @@ class FakeSupabase:
                     "kind": "application",
                     "stage": "Applied",
                     "stage_locked": False,
+                    "role": None,
+                    "salary": None,
+                    "location": None,
+                    "tags": [],
                     "last_activity": "2026-01-01T00:00:00+00:00",
                     "merged_into_id": None,
                 }
@@ -43,6 +48,8 @@ class FakeQuery:
         self.payload: dict[str, Any] | None = None
         self.filters: list[tuple[str, str, Any]] = []
         self.limit_count: int | None = None
+        self.order_column: str | None = None
+        self.order_desc = False
 
     def select(self, *_: object) -> "FakeQuery":
         self.operation = "select"
@@ -74,8 +81,17 @@ class FakeQuery:
         self.filters.append(("lt", column, value))
         return self
 
+    def gte(self, column: str, value: Any) -> "FakeQuery":
+        self.filters.append(("gte", column, value))
+        return self
+
     def limit(self, count: int) -> "FakeQuery":
         self.limit_count = count
+        return self
+
+    def order(self, column: str, desc: bool = False) -> "FakeQuery":
+        self.order_column = column
+        self.order_desc = desc
         return self
 
     def execute(self) -> SimpleNamespace:
@@ -119,6 +135,14 @@ class FakeQuery:
                 matched = [row for row in matched if row.get(column) in value]
             elif operation == "lt":
                 matched = [row for row in matched if row.get(column) < value]
+            elif operation == "gte":
+                matched = [row for row in matched if row.get(column) >= value]
+
+        if self.order_column:
+            matched.sort(
+                key=lambda row: str(row.get(self.order_column) or ""),
+                reverse=self.order_desc,
+            )
 
         if self.limit_count is not None:
             matched = matched[: self.limit_count]
@@ -280,3 +304,92 @@ def test_ingest_dedupes_before_classification_and_never_regresses(monkeypatch) -
     assert supabase.tables["email_events"][0]["application_id"] == "app-1"
     assert supabase.tables["email_events"][0]["advanced_stage"] is True
     assert supabase.tables["applications"][0]["stage"] == "Interview"
+
+
+def test_match_backfills_placeholder_role_and_company(monkeypatch) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "Acme Corp",
+                "role": "Product Strategy and Operations Associate",
+                "stage": "Applied",
+                "confidence": 0.95,
+                "summary": "Application received",
+            }
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0]["company"] = "Application submitted"
+    supabase.tables["applications"][0]["normalized_company"] = "application submitted"
+    supabase.tables["applications"][0]["role"] = "Thank you for applying"
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "application_event_matched"
+    application = supabase.tables["applications"][0]
+    assert application["company"] == "Acme Corp"
+    assert application["normalized_company"] == "acme"
+    assert application["role"] == "Product Strategy and Operations Associate"
+
+
+def test_match_does_not_overwrite_real_existing_role(monkeypatch) -> None:
+    patch_classifier(monkeypatch, [application_result("Applied")])
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0]["role"] = "Senior Analyst"
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "application_event_matched"
+    assert supabase.tables["applications"][0]["role"] == "Senior Analyst"
+
+
+def test_posting_enrichment_fills_missing_salary_location_and_tags(monkeypatch) -> None:
+    patch_classifier(monkeypatch, [application_result("Applied")])
+    supabase = FakeSupabase()
+    supabase.tables["job_postings"].append(
+        {
+            "id": "posting-1",
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Analyst",
+            "salary": "$120k to $150k",
+            "location": "New York, NY",
+            "tags": ["Hybrid", "Full-time"],
+            "seen_at": "2026-06-01T00:00:00+00:00",
+        }
+    )
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "application_event_matched"
+    application = supabase.tables["applications"][0]
+    assert application["salary"] == "$120k to $150k"
+    assert application["location"] == "New York, NY"
+    assert application["tags"] == ["Hybrid", "Full-time"]
+
+
+def test_posting_enrichment_does_nothing_without_role_match(monkeypatch) -> None:
+    patch_classifier(monkeypatch, [application_result("Applied")])
+    supabase = FakeSupabase()
+    supabase.tables["job_postings"].append(
+        {
+            "id": "posting-1",
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Designer",
+            "salary": "$120k to $150k",
+            "location": "Remote",
+            "tags": ["Remote"],
+            "seen_at": "2026-06-01T00:00:00+00:00",
+        }
+    )
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "application_event_matched"
+    application = supabase.tables["applications"][0]
+    assert application["salary"] is None
+    assert application["location"] is None
+    assert application["tags"] == []

@@ -5,6 +5,7 @@
   "description": "Save job applications to your personal job tracker.",
   "permissions": ["activeTab", "scripting", "storage"],
   "host_permissions": [
+    "<all_urls>",
     "http://localhost:3000/*",
     "https://*.vercel.app/*",
     "https://boards.greenhouse.io/*",
@@ -41,6 +42,11 @@
         "https://*.wd3.myworkdayjobs.com/*"
       ],
       "js": ["shared.js", "scraper.js", "ats-content.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["shared.js", "scraper.js", "posting-capture.js"],
       "run_at": "document_idle"
     }
   ]

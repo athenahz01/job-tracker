@@ -5,7 +5,7 @@
     const url = shared.cleanJobUrl(location.href);
     const ats = detectAts();
     const bodyText = document.body ? document.body.innerText : "";
-    const role = findRole(ats);
+    const role = cleanRole(findRole(ats), bodyText);
     const company = findCompany(ats, role);
     const description = findDescription();
     const salary = findSalary(bodyText);
@@ -474,10 +474,21 @@
       .replace(/\bjobs?\b/gi, "")
       .replace(/\bopenings?\b/gi, "")
       .trim();
-    if (!text || text === role) {
+    if (!text || text === role || isConfirmationPhrase(text)) {
       return "";
     }
     return text;
+  }
+
+  function cleanRole(value, bodyText) {
+    const text = shared.trimText(value, 180);
+    if (!text) {
+      return roleFromConfirmationText(bodyText);
+    }
+    if (!isConfirmationPhrase(text)) {
+      return text;
+    }
+    return roleFromConfirmationText(bodyText);
   }
 
   function cleanLocation(value) {
@@ -514,6 +525,49 @@
       .trimText(value, maxLength)
       .replace(/^(compensation|salary|pay range|pay|locations?|workplace|office)\b[:\s-]*/i, "")
       .trim();
+  }
+
+  function isConfirmationPhrase(value) {
+    const normalized = shared.trimText(value, 240).toLowerCase();
+    return [
+      "thank you for applying",
+      "thanks for applying",
+      "application received",
+      "application submitted",
+      "application has been submitted",
+      "your application was submitted",
+      "your application has been submitted"
+    ].some((phrase) => normalized.includes(phrase));
+  }
+
+  function roleFromConfirmationText(text) {
+    const normalized = shared.trimText(text, 4000);
+    const patterns = [
+      /(?:application|applying|applied)\s+(?:for|to)\s+(?:the\s+)?(.{3,140}?)\s+(?:role|position|job)\b/i,
+      /\bthe\s+(.{3,140}?)\s+role\s+at\s+[A-Z0-9]/i
+    ];
+
+    for (const pattern of patterns) {
+      const match = normalized.match(pattern);
+      if (!match) {
+        continue;
+      }
+      const title = cleanTitleCandidate(match[1]);
+      if (title) {
+        return title;
+      }
+    }
+    return "";
+  }
+
+  function cleanTitleCandidate(value) {
+    const title = shared
+      .trimText(value, 180)
+      .replace(/^["']+|["']+$/g, "")
+      .replace(/\s+at\s+[A-Z0-9].*$/i, "")
+      .replace(/[.!,:;]+$/g, "")
+      .trim();
+    return title && !isConfirmationPhrase(title) ? title : "";
   }
 
   function humanizeSlug(value) {

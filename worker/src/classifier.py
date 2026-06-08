@@ -29,6 +29,8 @@ Use other for anything not job related, including marketing, shopping, newslette
 
 company is the employer the user applied to, as named in the email body or subject, not the sender. Applicant tracking systems and email providers such as Oracle, Taleo, Workday, Greenhouse, Lever, Ashby, iCIMS, SmartRecruiters, SuccessFactors, Jobvite, Breezy, and Workable are tools, not the employer, so never use them as the company. When the body shows the user applied to or shows interest in a named company, for example "thank you for your interest in Acme Corp", use that company. If only a tracking system or sender domain is visible and no employer is named, set company to null.
 
+role is the specific job title the user applied to, taken from the email body. For example, "your application for the Product Strategy and Operations Associate role" gives role "Product Strategy and Operations Associate", and "the AI Agent Product Manager role at Hello Patient" gives role "AI Agent Product Manager". Never use the email subject line, page heading, or a greeting such as "Thank you for applying", "Application received", "Application submitted", or "Thanks for applying" as the role. Those phrases are not job titles. If no specific job title is named anywhere in the email body, set role to null rather than guessing.
+
 stage is meaningful only for application_event. For every other category, stage must be null.
 When stage is not null, it must be one of Saved, Applied, Assessment, Phone Screen, Interview, Final, Offer, Rejected, Ghosted.
 Use null when company, role, or stage cannot be determined.

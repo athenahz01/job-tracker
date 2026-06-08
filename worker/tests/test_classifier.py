@@ -87,3 +87,34 @@ def test_malformed_response_is_safe(monkeypatch) -> None:
     assert result["category"] == "other"
     assert result["stage"] is None
     assert result["confidence"] == 0.0
+
+
+def test_prompt_guides_body_role_extraction(monkeypatch) -> None:
+    patch_anthropic(
+        monkeypatch,
+        [
+            """
+            {
+              "category": "application_event",
+              "company": "Hello Patient",
+              "role": "AI Agent Product Manager",
+              "stage": "Applied",
+              "confidence": 0.92,
+              "summary": "Application confirmation"
+            }
+            """
+        ],
+    )
+
+    result = classifier.classify_email(
+        {
+            "subject": "Thank you for applying",
+            "from_address": "noreply@hello-patient.example",
+            "body": "Thank you for applying to the AI Agent Product Manager role at Hello Patient.",
+        },
+        make_config(),
+    )
+
+    assert result["role"] == "AI Agent Product Manager"
+    assert "specific job title" in classifier.CLASSIFICATION_PROMPT
+    assert "Never use the email subject line" in classifier.CLASSIFICATION_PROMPT

@@ -12,6 +12,7 @@ import {
   setStageAction,
   scoreApplicationFitAction,
   tailorApplicationAction,
+  updateApplicationRoleAction,
   updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
@@ -86,6 +87,20 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
             </label>
             <button className="primary-button" type="submit">
               Save company
+            </button>
+          </form>
+        </details>
+
+        <details className="inline-editor company-rename-editor">
+          <summary>Edit role</summary>
+          <form action={updateApplicationRoleAction} className="form-row">
+            <input type="hidden" name="applicationId" value={application.id} />
+            <label className="field compact-field">
+              <span>Role</span>
+              <input name="role" defaultValue={application.role ?? ""} />
+            </label>
+            <button className="primary-button" type="submit">
+              Save role
             </button>
           </form>
         </details>
@@ -435,6 +450,8 @@ function statusMessage(status: string) {
     tailor_error: "The tailoring drafts could not be saved.",
     company_saved: "Company name saved.",
     company_error: "The company name could not be saved.",
+    role_saved: "Role saved.",
+    role_error: "The role could not be saved.",
     contact_saved: "Contact saved.",
     contact_deleted: "Contact deleted.",
     contact_invalid: "That contact request was not valid.",

@@ -205,6 +205,33 @@ export async function renameCompanyAction(formData: FormData) {
   redirectWithStatus(id, "company_saved");
 }
 
+export async function updateApplicationRoleAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const id = readString(formData.get("applicationId"));
+  if (!isUuid(id)) {
+    redirectWithStatus(id, "invalid");
+  }
+
+  const role = cleanOptionalText(formData.get("role"), 220);
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("applications")
+    .update({
+      role,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .is("merged_into_id", null);
+
+  if (error) {
+    redirectWithStatus(id, "role_error");
+  }
+
+  revalidateApplicationViews(id);
+  redirectWithStatus(id, "role_saved");
+}
+
 export async function saveProfileAction(formData: FormData) {
   const status = await saveProfileResume(readString(formData.get("resumeText")));
 

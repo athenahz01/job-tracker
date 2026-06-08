@@ -104,7 +104,11 @@ vi.mock("next/navigation", () => ({
   }
 }));
 
-import { createContactAction, renameCompanyAction } from "../lib/dashboard-actions";
+import {
+  createContactAction,
+  renameCompanyAction,
+  updateApplicationRoleAction
+} from "../lib/dashboard-actions";
 import {
   saveProfileResume,
   scoreApplicationFit,
@@ -180,6 +184,38 @@ describe("dashboard actions", () => {
         })
       }
     ]);
+  });
+
+  it("updates an application role", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("role", "Senior Product Manager");
+
+    await expect(updateApplicationRoleAction(formData)).rejects.toMatchObject({
+      path: `/applications/${applicationId}?status=role_saved`
+    });
+
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          role: "Senior Product Manager",
+          updated_at: expect.any(String)
+        })
+      }
+    ]);
+  });
+
+  it("rejects an invalid role update id", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", "not-a-real-id");
+    formData.set("role", "Senior Product Manager");
+
+    await expect(updateApplicationRoleAction(formData)).rejects.toMatchObject({
+      path: "/?status=invalid"
+    });
+
+    expect(mockSupabase.state.updates).toEqual([]);
   });
 
   it("stores a clamped score and cleaned keywords", async () => {
