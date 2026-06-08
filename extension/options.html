@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Job Tracker Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Job Tracker</p>
+        <h1>Extension options</h1>
+        <p>Set the API URL and shared secret for this browser.</p>
+      </header>
+
+      <form id="options-form">
+        <label>
+          API base URL
+          <input
+            id="api-base-url"
+            name="apiBaseUrl"
+            placeholder="http://localhost:3000"
+            required
+          />
+        </label>
+        <label>
+          Shared secret
+          <input id="api-secret" name="apiSecret" type="password" required />
+        </label>
+        <button type="submit">Save options</button>
+      </form>
+
+      <p id="status" role="status"></p>
+    </main>
+    <script src="shared.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

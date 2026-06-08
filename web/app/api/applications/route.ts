@@ -8,7 +8,10 @@ type ApplicationInput = {
   role?: unknown;
   url?: unknown;
   source?: unknown;
+  notes?: unknown;
 };
+
+const dedupeWindowDays = 5;
 
 function secretsMatch(provided: string | null, expected: string | undefined) {
   if (!provided || !expected) {
@@ -65,17 +68,30 @@ export async function POST(request: NextRequest) {
   const role = optionalString(body.role);
   const url = optionalString(body.url);
   const source = optionalString(body.source) ?? "extension";
+  const notes = optionalString(body.notes);
+  const normalizedCompany = normalizeCompany(company);
 
   try {
     const supabase = createSupabaseServerClient();
+    const existing = await findExistingApplication(supabase, {
+      normalizedCompany,
+      role,
+      url
+    });
+
+    if (existing) {
+      return NextResponse.json({ ...existing, deduped: true });
+    }
+
     const { data, error } = await supabase
       .from("applications")
       .insert({
         company,
-        normalized_company: normalizeCompany(company),
+        normalized_company: normalizedCompany,
         role,
         url,
         source,
+        notes,
         stage: "Applied"
       })
       .select("*")
@@ -85,11 +101,57 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json(data, { status: 201 });
+    return NextResponse.json({ ...data, deduped: false }, { status: 201 });
   } catch {
     return NextResponse.json(
       { message: "Could not create application." },
       { status: 500 }
     );
   }
+}
+
+async function findExistingApplication(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  input: {
+    normalizedCompany: string;
+    role: string | null;
+    url: string | null;
+  }
+) {
+  if (input.url) {
+    const { data, error } = await supabase
+      .from("applications")
+      .select("*")
+      .eq("url", input.url)
+      .is("merged_into_id", null)
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+
+  const cutoff = new Date(
+    Date.now() - dedupeWindowDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+  let query = supabase
+    .from("applications")
+    .select("*")
+    .eq("normalized_company", input.normalizedCompany)
+    .is("merged_into_id", null)
+    .gte("created_at", cutoff)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  query = input.role ? query.eq("role", input.role) : query.is("role", null);
+
+  const { data, error } = await query.maybeSingle();
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }

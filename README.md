@@ -100,6 +100,19 @@ Run tests:
 pytest
 ```
 
+## Extension
+
+Load the Chrome extension from the `extension` folder with Developer mode in `chrome://extensions`.
+
+Open extension options and set:
+
+- API base URL, such as `http://localhost:3000` for local testing.
+- Shared secret, the same value as `EXTENSION_API_SECRET`.
+
+The popup saves the current job page. Greenhouse, Lever, Ashby, and Workday pages can auto-save only after a submitted application confirmation is detected. Generic sites only use the heuristic from the popup after user confirmation.
+
+The extension requests `activeTab` and `scripting` for one-click scraping, `storage` for settings and recent URL memory, host access for the supported ATS sites, and host access for local or Vercel API URLs. If the deployed API uses a custom domain, add that host to `extension/manifest.json`.
+
 ## Deploy
 
 Vercel root directory: `web`

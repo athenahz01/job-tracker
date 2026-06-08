@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Job Tracker</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Job Tracker</p>
+        <h1>Save this job</h1>
+      </header>
+
+      <p id="settings-message" class="notice" hidden>
+        Add your API URL and shared secret in options first.
+      </p>
+
+      <button id="save-current" type="button">Save current page</button>
+
+      <form id="manual-form" hidden>
+        <label>
+          Company
+          <input id="company" name="company" autocomplete="organization" required />
+        </label>
+        <label>
+          Role
+          <input id="role" name="role" autocomplete="off" />
+        </label>
+        <button type="submit">Save job</button>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <button id="open-options" class="secondary" type="button">Options</button>
+    </main>
+    <script src="shared.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>
