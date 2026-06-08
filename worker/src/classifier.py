@@ -27,6 +27,8 @@ Use job_alert for automated job board recommendations and digests, such as "X ju
 
 Use other for anything not job related, including marketing, shopping, newsletters, and personal mail.
 
+company is the employer the user applied to, as named in the email body or subject, not the sender. Applicant tracking systems and email providers such as Oracle, Taleo, Workday, Greenhouse, Lever, Ashby, iCIMS, SmartRecruiters, SuccessFactors, Jobvite, Breezy, and Workable are tools, not the employer, so never use them as the company. When the body shows the user applied to or shows interest in a named company, for example "thank you for your interest in Acme Corp", use that company. If only a tracking system or sender domain is visible and no employer is named, set company to null.
+
 stage is meaningful only for application_event. For every other category, stage must be null.
 When stage is not null, it must be one of Saved, Applied, Assessment, Phone Screen, Interview, Final, Offer, Rejected, Ghosted.
 Use null when company, role, or stage cannot be determined.
