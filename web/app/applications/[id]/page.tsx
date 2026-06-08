@@ -3,10 +3,12 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 
 import ContactsSection from "../../../components/ContactsSection";
+import DraftActionPanel from "../../../components/DraftActionPanel";
 import FitScoreBadge from "../../../components/FitScoreBadge";
 import MergeForm from "../../../components/MergeForm";
 import {
   clearStageLockAction,
+  renameCompanyAction,
   setStageAction,
   scoreApplicationFitAction,
   tailorApplicationAction,
@@ -74,6 +76,20 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           </div>
         </div>
 
+        <details className="inline-editor company-rename-editor">
+          <summary>Edit company name</summary>
+          <form action={renameCompanyAction} className="form-row">
+            <input type="hidden" name="applicationId" value={application.id} />
+            <label className="field compact-field">
+              <span>Company</span>
+              <input name="company" defaultValue={application.company} required />
+            </label>
+            <button className="primary-button" type="submit">
+              Save company
+            </button>
+          </form>
+        </details>
+
         <dl className="detail-grid">
           <DetailValue label="Last activity">
             {formatDate(application.last_activity)}
@@ -116,6 +132,32 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           {application.notes ? <DetailValue label="Notes">{application.notes}</DetailValue> : null}
         </dl>
       </section>
+
+      {!isRecruiterOutreach ? (
+        <section className="action-panel ai-action-panel">
+          <div className="section-heading ai-heading">
+            <div>
+              <p className="eyebrow">Outreach</p>
+              <h2>Draft Helpers</h2>
+              <p className="muted">Suggestions only. Review and copy before sending.</p>
+            </div>
+          </div>
+          <div className="draft-helper-grid">
+            <DraftActionPanel
+              kind="follow-up"
+              label="Draft follow-up"
+              description="Short email based on this application stage and activity."
+              applicationId={application.id}
+            />
+            <DraftActionPanel
+              kind="cold-outreach"
+              label="Who to reach out to"
+              description="Suggests a contact type and drafts a short cold message."
+              applicationId={application.id}
+            />
+          </div>
+        </section>
+      ) : null}
 
       {!isRecruiterOutreach ? (
         <section className="action-panel ai-action-panel">
@@ -391,6 +433,8 @@ function statusMessage(status: string) {
     fit_error: "The fit score could not be saved.",
     tailor_saved: "Tailoring drafts saved.",
     tailor_error: "The tailoring drafts could not be saved.",
+    company_saved: "Company name saved.",
+    company_error: "The company name could not be saved.",
     contact_saved: "Contact saved.",
     contact_deleted: "Contact deleted.",
     contact_invalid: "That contact request was not valid.",

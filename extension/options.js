@@ -21,5 +21,6 @@
       apiSecret: apiSecret.value
     });
     status.textContent = "Options saved.";
+    status.className = "success";
   }
 })();

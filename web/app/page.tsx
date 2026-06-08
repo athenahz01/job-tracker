@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
 import ApplicationTableView from "../components/ApplicationTableView";
+import AssistantView from "../components/AssistantView";
 import ContactsSection from "../components/ContactsSection";
 import FollowUpsView from "../components/FollowUpsView";
 import InsightsView from "../components/InsightsView";
@@ -30,6 +31,7 @@ const tabs: { view: DashboardView; label: string }[] = [
   { view: "table", label: "Table" },
   { view: "board", label: "Board" },
   { view: "flow", label: "Flow" },
+  { view: "assistant", label: "Assistant" },
   { view: "insights", label: "Insights" },
   { view: "follow-ups", label: "Follow-ups" },
   { view: "network", label: "Network" },
@@ -47,7 +49,7 @@ export default async function Home({ searchParams }: HomeProps) {
       getFollowUpsData(state.quietDays),
       getNetworkData(),
       state.view === "profile" ? getProfileData() : Promise.resolve(null),
-      state.view === "insights" ? getInsightsData() : Promise.resolve(null)
+      getInsightsData()
     ]);
   const boardApplications = filterAndSortApplications(
     [...applications],
@@ -71,6 +73,12 @@ export default async function Home({ searchParams }: HomeProps) {
       </header>
 
       {status ? <p className="status-message">{statusMessage(status)}</p> : null}
+
+      <DashboardSummary
+        applied={insights.totalApplied}
+        responseRate={insights.rates.response.display}
+        followUpsDue={followUps.length}
+      />
 
       <nav className="dashboard-tabs" aria-label="Dashboard views">
         {tabs.map((tab) => (
@@ -98,7 +106,9 @@ export default async function Home({ searchParams }: HomeProps) {
 
       {state.view === "flow" ? <ApplicationFlowSankey data={applicationFlow} /> : null}
 
-      {state.view === "insights" && insights ? <InsightsView data={insights} /> : null}
+      {state.view === "assistant" ? <AssistantView /> : null}
+
+      {state.view === "insights" ? <InsightsView data={insights} /> : null}
 
       {state.view === "follow-ups" ? (
         <>
@@ -120,6 +130,33 @@ export default async function Home({ searchParams }: HomeProps) {
 
       {state.view === "profile" ? <ProfileView profile={profile} /> : null}
     </main>
+  );
+}
+
+function DashboardSummary({
+  applied,
+  responseRate,
+  followUpsDue
+}: {
+  applied: number;
+  responseRate: string;
+  followUpsDue: number;
+}) {
+  return (
+    <section className="summary-bar" aria-label="Dashboard summary">
+      <div>
+        <span>Applied</span>
+        <strong>{applied}</strong>
+      </div>
+      <div>
+        <span>Response rate</span>
+        <strong>{responseRate}</strong>
+      </div>
+      <div>
+        <span>Follow-ups due</span>
+        <strong>{followUpsDue}</strong>
+      </div>
+    </section>
   );
 }
 

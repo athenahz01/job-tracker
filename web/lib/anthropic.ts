@@ -15,6 +15,10 @@ type ClaudeJsonRequest = {
   maxTokens: number;
 };
 
+type ClaudeTextRequest = ClaudeJsonRequest & {
+  temperature?: number;
+};
+
 type FitPromptInput = {
   company: string;
   role: string | null;
@@ -94,6 +98,16 @@ export function buildTailoringPrompt(input: FitPromptInput) {
 }
 
 async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonRequest) {
+  const text = await requestClaudeText({ system, prompt, maxTokens, temperature: 0 });
+  return parseClaudeJson(text);
+}
+
+export async function requestClaudeText({
+  system,
+  prompt,
+  maxTokens,
+  temperature = 0.2
+}: ClaudeTextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("Anthropic API key is not configured.");
@@ -109,7 +123,7 @@ async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonReques
     body: JSON.stringify({
       model: process.env.ANTHROPIC_MODEL || DEFAULT_ANTHROPIC_MODEL,
       max_tokens: maxTokens,
-      temperature: 0,
+      temperature,
       system,
       messages: [
         {
@@ -136,10 +150,10 @@ async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonReques
     throw new Error("Claude returned an empty response.");
   }
 
-  return parseClaudeJson(text);
+  return text;
 }
 
-function parseClaudeJson(text: string): unknown {
+export function parseClaudeJson(text: string): unknown {
   try {
     return JSON.parse(text);
   } catch {

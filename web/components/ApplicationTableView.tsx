@@ -241,7 +241,11 @@ export default function ApplicationTableView({ applications, state }: Applicatio
             ) : (
               <tr>
                 <td colSpan={columns.length + 1}>
-                  <p className="empty-state">No applications match these filters.</p>
+                  <p className="empty-state">
+                    {applications.length
+                      ? "No applications match these filters."
+                      : "No applications yet. Save a role with the extension or add one through the API to start your tracker."}
+                  </p>
                 </td>
               </tr>
             )}

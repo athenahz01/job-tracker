@@ -483,9 +483,7 @@
   function cleanLocation(value) {
     const text = shared
       .trimText(value, 180)
-      .replace(/^locations?:\s*/i, "")
-      .replace(/^workplace:\s*/i, "")
-      .replace(/^office:\s*/i, "")
+      .replace(/^(locations?|workplace|office)\b[:\s-]*/i, "")
       .trim();
     return text.length > 120 ? shortLocation(text) : text;
   }
@@ -514,7 +512,7 @@
   function cleanLabeledText(value, maxLength) {
     return shared
       .trimText(value, maxLength)
-      .replace(/^(compensation|salary|pay range|pay|location|locations|workplace|office):\s*/i, "")
+      .replace(/^(compensation|salary|pay range|pay|locations?|workplace|office)\b[:\s-]*/i, "")
       .trim();
   }
 

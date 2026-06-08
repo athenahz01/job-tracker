@@ -104,7 +104,7 @@ vi.mock("next/navigation", () => ({
   }
 }));
 
-import { createContactAction } from "../lib/dashboard-actions";
+import { createContactAction, renameCompanyAction } from "../lib/dashboard-actions";
 import {
   saveProfileResume,
   scoreApplicationFit,
@@ -157,6 +157,26 @@ describe("dashboard actions", () => {
           relationship: "recruiter",
           application_id: applicationId,
           next_follow_up: "2026-06-08"
+        })
+      }
+    ]);
+  });
+
+  it("renames a company and updates the normalized company", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("company", "Tradeweb Markets LLC");
+
+    await expect(renameCompanyAction(formData)).rejects.toMatchObject({
+      path: `/applications/${applicationId}?status=company_saved`
+    });
+
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          company: "Tradeweb Markets LLC",
+          normalized_company: "tradeweb markets"
         })
       }
     ]);

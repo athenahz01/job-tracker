@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { normalizeCompanyName } from "../../../lib/company";
 import { extensionSecretMatches } from "../../../lib/extension-auth";
 import { createSupabaseServerClient } from "../../../lib/supabase";
 import { resolveForwardStage, stageRank, type Stage } from "../../../lib/stages";
@@ -46,19 +47,6 @@ function parseTags(value: unknown) {
   ).slice(0, maxTags);
 }
 
-function normalizeCompany(company: string) {
-  return company
-    .toLowerCase()
-    .trim()
-    .replace(/[.,]/g, "")
-    .replace(
-      /\b(incorporated|inc|limited|ltd|llc|corporation|corp)\b$/i,
-      ""
-    )
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
 function parseExtensionStage(stage: unknown): Stage {
   return typeof stage === "string" && extensionStages.has(stage as Stage)
     ? (stage as Stage)
@@ -94,7 +82,7 @@ export async function POST(request: NextRequest) {
   const salary = optionalLimitedString(body.salary, 160);
   const location = optionalLimitedString(body.location, 180);
   const tags = parseTags(body.tags);
-  const normalizedCompany = normalizeCompany(company);
+  const normalizedCompany = normalizeCompanyName(company);
 
   try {
     const supabase = createSupabaseServerClient();

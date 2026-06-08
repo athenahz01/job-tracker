@@ -9,18 +9,20 @@ body {
 
 main {
   display: grid;
-  gap: 18px;
+  gap: 16px;
   max-width: 520px;
   margin: 48px auto;
   border: 1px solid #d9ded8;
   border-radius: 8px;
   background: #fff;
+  box-shadow: 0 10px 30px rgba(42, 50, 47, 0.08);
   padding: 24px;
 }
 
 h1 {
   margin: 4px 0 0;
-  font-size: 28px;
+  font-size: 26px;
+  line-height: 1.1;
 }
 
 p {
@@ -59,6 +61,7 @@ input {
   height: 38px;
   border: 1px solid #d9ded8;
   border-radius: 6px;
+  color: #18211f;
   padding: 0 10px;
 }
 
@@ -70,9 +73,44 @@ button {
   color: #fff;
   font-weight: 800;
   cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    box-shadow 150ms ease,
+    transform 150ms ease;
+}
+
+button:hover {
+  background: #174f4b;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(42, 50, 47, 0.1);
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(43, 111, 106, 0.2);
 }
 
 #status {
   min-height: 20px;
+  margin: 0;
+  border-radius: 6px;
+  padding: 0;
   color: #174f4b;
+}
+
+#status.success,
+#status.error {
+  padding: 10px;
+}
+
+#status.success {
+  border: 1px solid #b7d7c8;
+  background: #edf8f1;
+}
+
+#status.error {
+  border: 1px solid #f0bbb6;
+  background: #fff0f0;
+  color: #a8483f;
 }

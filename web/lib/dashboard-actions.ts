@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { normalizeCompanyName } from "./company";
 import { requireDashboardAccess } from "./dashboard-auth";
 import {
   saveProfileResume,
@@ -174,6 +175,34 @@ export async function updateApplicationTrackerFieldsAction(formData: FormData) {
 
   revalidateApplicationViews(id);
   redirectWithStatus(id, "tracker_saved");
+}
+
+export async function renameCompanyAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const id = readString(formData.get("applicationId"));
+  const company = cleanRequiredText(formData.get("company"), 180);
+  if (!isUuid(id) || !company) {
+    redirectWithStatus(id, "invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("applications")
+    .update({
+      company,
+      normalized_company: normalizeCompanyName(company),
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .is("merged_into_id", null);
+
+  if (error) {
+    redirectWithStatus(id, "company_error");
+  }
+
+  revalidateApplicationViews(id);
+  redirectWithStatus(id, "company_saved");
 }
 
 export async function saveProfileAction(formData: FormData) {

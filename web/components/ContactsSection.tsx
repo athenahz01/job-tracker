@@ -7,6 +7,7 @@ import {
   deleteContactAction,
   updateContactAction
 } from "../lib/dashboard-actions";
+import DraftActionPanel from "./DraftActionPanel";
 import type {
   ApplicationSummary,
   ContactRow,
@@ -91,6 +92,12 @@ export default function ContactsSection({
                     <td>{contact.last_contacted || "Not set"}</td>
                     <td>{contact.next_follow_up || "Not set"}</td>
                     <td>
+                      <DraftActionPanel
+                        compact
+                        kind="contact-outreach"
+                        label="Draft outreach"
+                        contactId={contact.id}
+                      />
                       <details className="row-editor">
                         <summary>Edit</summary>
                         <ContactForm

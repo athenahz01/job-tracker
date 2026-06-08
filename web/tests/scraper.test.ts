@@ -57,6 +57,23 @@ describe("extension scraper", () => {
     expect(scrape.location).toBe("New York, NY Hybrid");
     expect(scrape.tags).toEqual(expect.arrayContaining(["Hybrid", "Contract"]));
   });
+
+  it("strips a leading location label from captured location text", () => {
+    const scrape = runScraper({
+      hostname: "jobs.lever.co",
+      href: "https://jobs.lever.co/acme/789",
+      pathname: "/acme/789",
+      title: "Data Engineer - Acme",
+      markup: `
+        <main>
+          <div class="posting-headline"><h2>Data Engineer</h2></div>
+          <section data-testid="location">Location New York, New York</section>
+        </main>
+      `
+    });
+
+    expect(scrape.location).toBe("New York, New York");
+  });
 });
 
 function runScraper(input: {
