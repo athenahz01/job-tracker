@@ -1,8 +1,8 @@
 body {
   margin: 0;
-  width: 330px;
-  background: #f5f7f8;
-  color: #17211d;
+  width: 360px;
+  background: #f6f4ef;
+  color: #18211f;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
@@ -10,7 +10,7 @@ body {
 
 main {
   display: grid;
-  gap: 14px;
+  gap: 13px;
   padding: 16px;
 }
 
@@ -22,7 +22,7 @@ h1 {
 
 .eyebrow {
   margin: 0;
-  color: #26735f;
+  color: #174f4b;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -35,12 +35,12 @@ input {
 }
 
 button {
-  min-height: 38px;
-  border: 1px solid #26735f;
+  min-height: 40px;
+  border: 1px solid #2b6f6a;
   border-radius: 6px;
-  background: #26735f;
+  background: #2b6f6a;
   color: #fff;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
 }
 
@@ -50,9 +50,9 @@ button:disabled {
 }
 
 button.secondary {
-  border-color: #d8e0dc;
+  border-color: #d9ded8;
   background: #fff;
-  color: #17211d;
+  color: #18211f;
 }
 
 form {
@@ -63,15 +63,18 @@ form {
 label {
   display: grid;
   gap: 6px;
-  color: #66736d;
+  color: #66716d;
   font-size: 13px;
+  font-weight: 700;
 }
 
 input {
-  height: 36px;
-  border: 1px solid #d8e0dc;
+  height: 38px;
+  border: 1px solid #d9ded8;
   border-radius: 6px;
   padding: 0 9px;
+  background: #fff;
+  color: #18211f;
 }
 
 .notice,
@@ -85,20 +88,20 @@ input {
 .notice {
   border: 1px solid #d6bf82;
   background: #fff6dd;
-  color: #8a5a00;
+  color: #946114;
 }
 
 .status {
   min-height: 18px;
-  color: #66736d;
+  color: #66716d;
 }
 
 .status.success {
   background: #edf8f1;
-  color: #174d40;
+  color: #174f4b;
 }
 
 .status.error {
   background: #fff0f0;
-  color: #a63f3f;
+  color: #a8483f;
 }

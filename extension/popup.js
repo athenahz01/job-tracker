@@ -7,6 +7,10 @@
   const manualForm = document.getElementById("manual-form");
   const companyInput = document.getElementById("company");
   const roleInput = document.getElementById("role");
+  const locationInput = document.getElementById("location");
+  const salaryInput = document.getElementById("salary");
+  const tagsInput = document.getElementById("tags");
+  const submitButton = document.getElementById("submit-capture");
   let pendingCapture = null;
   let pendingSource = "extension";
   let pendingStage = "Saved";
@@ -42,15 +46,12 @@
         }
       }
 
-      if (!capture.company) {
-        companyInput.value = "";
-        roleInput.value = capture.role || "";
-        manualForm.hidden = false;
-        setStatus("Add the company name, then save.", "");
-        return;
-      }
-
-      await postCapture(capture, pendingSource, pendingStage);
+      populateForm(capture, pendingStage);
+      manualForm.hidden = false;
+      setStatus(
+        capture.company ? "Review details, then save." : "Add the company name, then save.",
+        ""
+      );
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not read this page.", "error");
     } finally {
@@ -67,7 +68,10 @@
     const capture = {
       ...pendingCapture,
       company: companyInput.value,
-      role: roleInput.value || pendingCapture.role
+      role: roleInput.value || pendingCapture.role,
+      location: locationInput.value,
+      salary: salaryInput.value,
+      tags: shared.parseTags(tagsInput.value)
     };
     await postCapture(capture, pendingSource, pendingStage);
   }
@@ -116,6 +120,15 @@
       return;
     }
     setStatus(response.deduped ? "Already saved." : "Saved for later.", "success");
+  }
+
+  function populateForm(capture, stage) {
+    companyInput.value = capture.company || "";
+    roleInput.value = capture.role || "";
+    locationInput.value = capture.location || "";
+    salaryInput.value = capture.salary || "";
+    tagsInput.value = shared.parseTags(capture.tags).join(", ");
+    submitButton.textContent = stage === "Applied" ? "Mark as applied" : "Save for later";
   }
 
   function setStatus(message, className) {

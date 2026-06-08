@@ -48,6 +48,27 @@
     return maxLength ? trimmed.slice(0, maxLength) : trimmed;
   }
 
+  function parseTags(value) {
+    const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+    const seen = new Set();
+    const tags = [];
+
+    for (const item of values) {
+      const tag = trimText(item, 40);
+      const key = tag.toLowerCase();
+      if (!tag || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      tags.push(tag);
+      if (tags.length >= 20) {
+        break;
+      }
+    }
+
+    return tags;
+  }
+
   function cleanJobUrl(value) {
     if (!value) {
       return "";
@@ -137,6 +158,7 @@
     cleanJobUrl,
     getRecentPosts,
     getSettings,
+    parseTags,
     recentPostCoversStage,
     rememberPost,
     saveSettings,

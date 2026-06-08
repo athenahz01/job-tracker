@@ -56,6 +56,9 @@ async function saveApplication(capture, source, auto, requestedStage) {
     role: shared.trimText(capture && capture.role, 220) || null,
     url: url || null,
     notes: shared.trimText(capture && capture.notes, 9000) || null,
+    salary: shared.trimText(capture && capture.salary, 160) || null,
+    location: shared.trimText(capture && capture.location, 180) || null,
+    tags: shared.parseTags(capture && capture.tags),
     source: source || "extension",
     stage
   };

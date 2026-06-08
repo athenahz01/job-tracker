@@ -17,7 +17,7 @@
         Add your API URL and shared secret in options first.
       </p>
 
-      <button id="save-current" type="button">Save for later</button>
+      <button id="save-current" type="button">Review current page</button>
 
       <form id="manual-form" hidden>
         <label>
@@ -28,7 +28,19 @@
           Role
           <input id="role" name="role" autocomplete="off" />
         </label>
-        <button type="submit">Save for later</button>
+        <label>
+          Location
+          <input id="location" name="location" autocomplete="off" />
+        </label>
+        <label>
+          Salary
+          <input id="salary" name="salary" autocomplete="off" />
+        </label>
+        <label>
+          Tags
+          <input id="tags" name="tags" autocomplete="off" placeholder="remote, ai, referral" />
+        </label>
+        <button id="submit-capture" type="submit">Save for later</button>
       </form>
 
       <p id="status" class="status" role="status"></p>

@@ -11,10 +11,15 @@ type ApplicationInput = {
   source?: unknown;
   notes?: unknown;
   stage?: unknown;
+  salary?: unknown;
+  location?: unknown;
+  tags?: unknown;
 };
 
 const dedupeWindowDays = 5;
 const extensionStages = new Set<Stage>(["Saved", "Applied"]);
+const maxTags = 20;
+const maxTagLength = 40;
 
 function secretsMatch(provided: string | null, expected: string | undefined) {
   if (!provided || !expected) {
@@ -32,6 +37,27 @@ function secretsMatch(provided: string | null, expected: string | undefined) {
 
 function optionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function optionalLimitedString(value: unknown, maxLength: number) {
+  const text = optionalString(value);
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function parseTags(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .filter((tag): tag is string => typeof tag === "string")
+        .map((tag) => tag.trim())
+        .filter(Boolean)
+        .map((tag) => tag.slice(0, maxTagLength))
+    )
+  ).slice(0, maxTags);
 }
 
 function normalizeCompany(company: string) {
@@ -79,6 +105,9 @@ export async function POST(request: NextRequest) {
   const source = optionalString(body.source) ?? "extension";
   const notes = optionalString(body.notes);
   const stage = parseExtensionStage(body.stage);
+  const salary = optionalLimitedString(body.salary, 160);
+  const location = optionalLimitedString(body.location, 180);
+  const tags = parseTags(body.tags);
   const normalizedCompany = normalizeCompany(company);
 
   try {
@@ -90,7 +119,12 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      const application = await advanceExistingApplication(supabase, existing, stage);
+      const application = await updateExistingApplication(supabase, existing, {
+        stage,
+        salary,
+        location,
+        tags
+      });
       return NextResponse.json({ ...application, deduped: true });
     }
 
@@ -103,7 +137,10 @@ export async function POST(request: NextRequest) {
         url,
         source,
         notes,
-        stage
+        stage,
+        salary,
+        location,
+        tags
       })
       .select("*")
       .single();
@@ -121,34 +158,67 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function advanceExistingApplication(
+async function updateExistingApplication(
   supabase: ReturnType<typeof createSupabaseServerClient>,
-  existing: { id: string; stage: Stage; stage_locked: boolean },
-  postedStage: Stage
+  existing: {
+    id: string;
+    stage: Stage;
+    stage_locked: boolean;
+    salary: string | null;
+    location: string | null;
+    tags: string[] | null;
+  },
+  incoming: {
+    stage: Stage;
+    salary: string | null;
+    location: string | null;
+    tags: string[];
+  }
 ) {
-  if (existing.stage_locked) {
-    return existing;
+  const update: {
+    stage?: Stage;
+    salary?: string;
+    location?: string;
+    tags?: string[];
+    last_activity?: string;
+  } = {};
+
+  if (!existing.stage_locked) {
+    const resolvedStage = resolveForwardStage(existing.stage, incoming.stage);
+    const currentRank = stageRank[existing.stage];
+    const resolvedRank = stageRank[resolvedStage];
+
+    if (
+      resolvedStage !== existing.stage &&
+      currentRank !== undefined &&
+      resolvedRank !== undefined &&
+      resolvedRank > currentRank
+    ) {
+      update.stage = resolvedStage;
+      update.last_activity = new Date().toISOString();
+    }
   }
 
-  const resolvedStage = resolveForwardStage(existing.stage, postedStage);
-  const currentRank = stageRank[existing.stage];
-  const resolvedRank = stageRank[resolvedStage];
+  if (!existing.salary && incoming.salary) {
+    update.salary = incoming.salary;
+  }
 
-  if (
-    resolvedStage === existing.stage ||
-    currentRank === undefined ||
-    resolvedRank === undefined ||
-    resolvedRank <= currentRank
-  ) {
+  if (!existing.location && incoming.location) {
+    update.location = incoming.location;
+  }
+
+  const mergedTags = mergeTags(existing.tags, incoming.tags);
+  if (mergedTags.changed) {
+    update.tags = mergedTags.tags;
+  }
+
+  if (!Object.keys(update).length) {
     return existing;
   }
 
   const { data, error } = await supabase
     .from("applications")
-    .update({
-      stage: resolvedStage,
-      last_activity: new Date().toISOString()
-    })
+    .update(update)
     .eq("id", existing.id)
     .select("*")
     .single();
@@ -158,6 +228,27 @@ async function advanceExistingApplication(
   }
 
   return data;
+}
+
+function mergeTags(existingTags: string[] | null, incomingTags: string[]) {
+  const existing = Array.isArray(existingTags) ? existingTags : [];
+  const existingKeys = new Set(existing);
+  const tags = [...existing];
+  let changed = false;
+
+  for (const tag of incomingTags) {
+    if (existingKeys.has(tag)) {
+      continue;
+    }
+    existingKeys.add(tag);
+    tags.push(tag);
+    changed = true;
+    if (tags.length >= maxTags) {
+      break;
+    }
+  }
+
+  return { changed, tags };
 }
 
 async function findExistingApplication(

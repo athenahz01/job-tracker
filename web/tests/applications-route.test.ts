@@ -15,6 +15,9 @@ type MockApplication = {
   stage_locked: boolean;
   kind: "application";
   notes: string | null;
+  salary: string | null;
+  location: string | null;
+  tags: string[];
   first_seen: string;
   last_activity: string;
   created_at: string;
@@ -105,6 +108,9 @@ const mockSupabase = vi.hoisted(() => {
           stage_locked: false,
           kind: "application",
           notes: null,
+          salary: null,
+          location: null,
+          tags: [],
           first_seen: now,
           last_activity: now,
           created_at: now,
@@ -213,6 +219,28 @@ describe("applications route", () => {
     expect(body.deduped).toBe(false);
   });
 
+  it("stores salary, location, and cleaned tags on insert", async () => {
+    const { body, response } = await postApplication({
+      company: "Finch",
+      role: "Data Scientist",
+      stage: "Saved",
+      url: "https://jobs.example.com/finch/data",
+      salary: "  $120k to $150k  ",
+      location: "  Remote US  ",
+      tags: [" remote ", "ai", "", "Remote", "very-long-tag-name-that-should-be-trimmed-at-forty-characters"]
+    });
+
+    expect(response.status).toBe(201);
+    expect(body.salary).toBe("$120k to $150k");
+    expect(body.location).toBe("Remote US");
+    expect(body.tags).toEqual([
+      "remote",
+      "ai",
+      "Remote",
+      "very-long-tag-name-that-should-be-trimme"
+    ]);
+  });
+
   it("advances an existing saved application to applied", async () => {
     await postApplication({
       company: "Cobalt",
@@ -285,6 +313,35 @@ describe("applications route", () => {
     expect(mockSupabase.state.applications[0].last_activity).toBe(
       "2024-01-01T00:00:00.000Z"
     );
+  });
+
+  it("fills empty deduped fields and unions tags without overwriting", async () => {
+    await postApplication({
+      company: "Granite",
+      role: "Engineer",
+      url: "https://jobs.example.com/granite/engineer",
+      salary: "$100k to $120k",
+      tags: ["backend", "remote"]
+    });
+    Object.assign(mockSupabase.state.applications[0], {
+      salary: "$130k edited",
+      location: null,
+      tags: ["backend", "manual"]
+    });
+
+    const { body } = await postApplication({
+      company: "Granite",
+      role: "Engineer",
+      url: "https://jobs.example.com/granite/engineer",
+      salary: "$100k to $120k",
+      location: "New York",
+      tags: ["remote", "manual", "fintech"]
+    });
+
+    expect(body.deduped).toBe(true);
+    expect(body.salary).toBe("$130k edited");
+    expect(body.location).toBe("New York");
+    expect(body.tags).toEqual(["backend", "manual", "remote", "fintech"]);
   });
 });
 
