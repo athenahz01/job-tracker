@@ -127,6 +127,7 @@ textarea {
 .followups-section,
 .outreach-section,
 .profile-section,
+.insights-section,
 .login-box {
   background: var(--panel);
   border: 1px solid var(--line);
@@ -192,6 +193,75 @@ textarea {
   height: auto;
 }
 
+.insights-section {
+  display: grid;
+  gap: 16px;
+}
+
+.insight-stat-grid,
+.insight-rate-grid,
+.insight-two-column,
+.top-list-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.insight-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.insight-rate-grid,
+.insight-two-column,
+.top-list-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.insight-stat,
+.insight-rate-card,
+.insight-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.insight-stat,
+.insight-rate-card {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+}
+
+.insight-stat p,
+.insight-rate-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.insight-stat strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.insight-rate-card strong {
+  color: var(--accent-dark);
+  font-size: 30px;
+  line-height: 1;
+}
+
+.insight-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+}
+
+.insight-panel h3 {
+  margin: 4px 0 0;
+  font-size: 20px;
+}
+
 .flow-node-label {
   fill: var(--text);
   font-size: 14px;
@@ -202,6 +272,74 @@ textarea {
   margin: 14px 0 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.funnel-list {
+  display: grid;
+  gap: 12px;
+}
+
+.funnel-step {
+  display: grid;
+  gap: 6px;
+}
+
+.funnel-step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.funnel-step-top span {
+  color: var(--accent-dark);
+  font-weight: 800;
+}
+
+.funnel-bar-track {
+  overflow: hidden;
+  height: 12px;
+  border-radius: 999px;
+  background: #e9eeeb;
+}
+
+.funnel-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.weekly-chart-wrap {
+  overflow-x: auto;
+}
+
+.weekly-chart {
+  display: block;
+  width: 100%;
+  min-width: 680px;
+  height: auto;
+}
+
+.weekly-axis {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.weekly-bar {
+  fill: var(--accent);
+  opacity: 0.82;
+}
+
+.weekly-count {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.weekly-label {
+  fill: var(--muted);
+  font-size: 11px;
 }
 
 .filters,
@@ -303,7 +441,8 @@ textarea {
 .table-view,
 .network-section,
 .followups-section,
-.profile-section {
+.profile-section,
+.insights-section {
   margin-bottom: 18px;
   padding: 16px;
 }
@@ -380,6 +519,28 @@ textarea {
   position: sticky;
   top: 0;
   z-index: 1;
+  background: #f7faf8;
+  color: #4c5a55;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.insights-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.insights-table th,
+.insights-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 11px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.insights-table th {
   background: #f7faf8;
   color: #4c5a55;
   font-size: 12px;
@@ -519,6 +680,47 @@ textarea {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 5px;
+}
+
+.timing-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.timing-row strong {
+  color: var(--accent-dark);
+  font-size: 20px;
+}
+
+.ranked-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ranked-list h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.ranked-list ol {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ranked-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 7px;
 }
 
 .board {
@@ -904,6 +1106,11 @@ textarea {
   .topbar-counts,
   .timeline-meta,
   .outreach-row {
+    align-items: flex-start;
+    grid-template-columns: 1fr;
+  }
+
+  .timing-row {
     align-items: flex-start;
     grid-template-columns: 1fr;
   }

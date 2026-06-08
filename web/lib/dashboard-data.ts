@@ -1,6 +1,8 @@
 import "server-only";
 
+import { getFurthestActiveStage } from "./application-stages";
 import { buildFollowUpItems } from "./followups";
+import { buildInsightsData, type InsightsData } from "./insights-calc";
 import { createSupabaseServerClient } from "./supabase";
 import { stageRank, type Stage } from "./stages";
 import { type Priority, type Relationship } from "./tracker";
@@ -134,15 +136,6 @@ export type ProfileRow = {
   updated_at: string;
 };
 
-const activeFlowStages = [
-  "Applied",
-  "Assessment",
-  "Phone Screen",
-  "Interview",
-  "Final",
-  "Offer"
-] as const satisfies readonly Stage[];
-
 export async function getDashboardData() {
   const supabase = createSupabaseServerClient();
 
@@ -169,6 +162,38 @@ export async function getDashboardData() {
     applications: normalizeApplications(applicationsResponse.data),
     recruiterOutreach: normalizeApplications(recruiterResponse.data)
   };
+}
+
+export async function getInsightsData(): Promise<InsightsData> {
+  const supabase = createSupabaseServerClient();
+  const applicationsResponse = await supabase
+    .from("applications")
+    .select("*")
+    .eq("kind", "application")
+    .is("merged_into_id", null);
+
+  if (applicationsResponse.error) {
+    throw new Error("Could not load insights applications.");
+  }
+
+  const applications = normalizeApplications(applicationsResponse.data);
+  if (!applications.length) {
+    return buildInsightsData([], []);
+  }
+
+  const eventsResponse = await supabase
+    .from("email_events")
+    .select("application_id, detected_stage, received_at")
+    .in(
+      "application_id",
+      applications.map((application) => application.id)
+    );
+
+  if (eventsResponse.error) {
+    throw new Error("Could not load insights events.");
+  }
+
+  return buildInsightsData(applications, (eventsResponse.data ?? []) as EmailEventRow[]);
 }
 
 export async function getProfileData(): Promise<ProfileRow | null> {
@@ -493,28 +518,6 @@ function buildApplicationFlow(
     links,
     interviewedBeforeOutcome
   };
-}
-
-function getFurthestActiveStage(currentStage: Stage, detectedStages: Stage[]) {
-  const touched = new Set<Stage>(["Applied"]);
-  for (const stage of detectedStages) {
-    if (isActiveFlowStage(stage)) {
-      touched.add(stage);
-    }
-  }
-  if (isActiveFlowStage(currentStage)) {
-    touched.add(currentStage);
-  }
-
-  return [...touched].reduce<Stage>(
-    (furthest, stage) =>
-      (stageRank[stage] ?? 0) > (stageRank[furthest] ?? 0) ? stage : furthest,
-    "Applied"
-  );
-}
-
-function isActiveFlowStage(stage: Stage): stage is (typeof activeFlowStages)[number] {
-  return activeFlowStages.includes(stage as (typeof activeFlowStages)[number]);
 }
 
 function node(

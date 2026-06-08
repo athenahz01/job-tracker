@@ -4,11 +4,13 @@ import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
 import ApplicationTableView from "../components/ApplicationTableView";
 import ContactsSection from "../components/ContactsSection";
 import FollowUpsView from "../components/FollowUpsView";
+import InsightsView from "../components/InsightsView";
 import ProfileView from "../components/ProfileView";
 import {
   getApplicationFlowData,
   getDashboardData,
   getFollowUpsData,
+  getInsightsData,
   getNetworkData,
   getProfileData,
   type ApplicationRow
@@ -28,6 +30,7 @@ const tabs: { view: DashboardView; label: string }[] = [
   { view: "table", label: "Table" },
   { view: "board", label: "Board" },
   { view: "flow", label: "Flow" },
+  { view: "insights", label: "Insights" },
   { view: "follow-ups", label: "Follow-ups" },
   { view: "network", label: "Network" },
   { view: "profile", label: "Profile" }
@@ -37,13 +40,14 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const state = parseTableState(params);
   const status = readSingle(params.status);
-  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profile] =
+  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profile, insights] =
     await Promise.all([
       getDashboardData(),
       getApplicationFlowData(),
       getFollowUpsData(state.quietDays),
       getNetworkData(),
-      state.view === "profile" ? getProfileData() : Promise.resolve(null)
+      state.view === "profile" ? getProfileData() : Promise.resolve(null),
+      state.view === "insights" ? getInsightsData() : Promise.resolve(null)
     ]);
   const boardApplications = filterAndSortApplications(
     [...applications],
@@ -93,6 +97,8 @@ export default async function Home({ searchParams }: HomeProps) {
       ) : null}
 
       {state.view === "flow" ? <ApplicationFlowSankey data={applicationFlow} /> : null}
+
+      {state.view === "insights" && insights ? <InsightsView data={insights} /> : null}
 
       {state.view === "follow-ups" ? (
         <>

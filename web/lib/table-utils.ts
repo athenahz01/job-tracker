@@ -2,7 +2,14 @@ import type { ApplicationRow } from "./dashboard-data";
 import { type Stage, stages } from "./stages";
 import { activeApplicationStages, isPriority, Priority } from "./tracker";
 
-export type DashboardView = "table" | "board" | "flow" | "follow-ups" | "network" | "profile";
+export type DashboardView =
+  | "table"
+  | "board"
+  | "flow"
+  | "follow-ups"
+  | "network"
+  | "profile"
+  | "insights";
 
 export type TableFilters = {
   stage?: Stage;
@@ -37,7 +44,15 @@ export type TableState = {
   quietDays: number;
 };
 
-const views: DashboardView[] = ["table", "board", "flow", "follow-ups", "network", "profile"];
+const views: DashboardView[] = [
+  "table",
+  "board",
+  "flow",
+  "follow-ups",
+  "network",
+  "profile",
+  "insights"
+];
 const sortKeys: SortKey[] = [
   "company",
   "role",
