@@ -87,8 +87,8 @@ export async function scoreApplicationFit(applicationId: string): Promise<FitSco
       resumeText
     });
     parsed = normalizeFitResult(result);
-  } catch {
-    console.error("Could not score application fit.");
+  } catch (error) {
+    console.error("Could not score application fit.", error);
   }
 
   if (!parsed) {
@@ -143,8 +143,8 @@ export async function tailorApplication(applicationId: string): Promise<Tailorin
       resumeText
     });
     parsed = normalizeTailoringResult(result);
-  } catch {
-    console.error("Could not tailor application.");
+  } catch (error) {
+    console.error("Could not tailor application.", error);
   }
 
   if (!parsed) {

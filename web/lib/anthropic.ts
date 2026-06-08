@@ -121,7 +121,8 @@ async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonReques
   });
 
   if (!response.ok) {
-    throw new Error("Claude request failed.");
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Claude request failed: ${response.status} ${detail.slice(0, 300)}`);
   }
 
   const payload = (await response.json()) as ClaudeMessageResponse;
@@ -135,5 +136,30 @@ async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonReques
     throw new Error("Claude returned an empty response.");
   }
 
-  return JSON.parse(text);
+  return parseClaudeJson(text);
+}
+
+function parseClaudeJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Models sometimes wrap JSON in markdown fences or add stray prose.
+  }
+
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  if (fenced) {
+    try {
+      return JSON.parse(fenced[1]);
+    } catch {
+      // fall through to brace extraction
+    }
+  }
+
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end > start) {
+    return JSON.parse(text.slice(start, end + 1));
+  }
+
+  throw new Error("Claude did not return valid JSON.");
 }
