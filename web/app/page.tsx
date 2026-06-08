@@ -1,13 +1,20 @@
 import Link from "next/link";
 
 import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
+import ApplicationTableView from "../components/ApplicationTableView";
+import ContactsSection from "../components/ContactsSection";
+import FollowUpsView from "../components/FollowUpsView";
 import {
   getApplicationFlowData,
   getDashboardData,
-  parseFilters
+  getFollowUpsData,
+  getNetworkData,
+  type ApplicationRow
 } from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
-import { Stage, stages } from "../lib/stages";
+import { stageClass } from "../lib/style-utils";
+import { filterAndSortApplications, parseTableState, type DashboardView } from "../lib/table-utils";
+import { type Stage, stages } from "../lib/stages";
 
 export const dynamic = "force-dynamic";
 
@@ -15,21 +22,31 @@ type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const tabs: { view: DashboardView; label: string }[] = [
+  { view: "table", label: "Table" },
+  { view: "board", label: "Board" },
+  { view: "flow", label: "Flow" },
+  { view: "follow-ups", label: "Follow-ups" },
+  { view: "network", label: "Network" }
+];
+
 export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
-  const filters = parseFilters(params);
-  const [{ applications, recruiterOutreach }, applicationFlow] = await Promise.all([
-    getDashboardData(filters),
-    getApplicationFlowData()
-  ]);
-
-  const grouped = new Map<Stage, typeof applications>();
-  for (const stage of stages) {
-    grouped.set(stage, []);
-  }
-  for (const application of applications) {
-    grouped.get(application.stage)?.push(application);
-  }
+  const state = parseTableState(params);
+  const status = readSingle(params.status);
+  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network] =
+    await Promise.all([
+      getDashboardData(),
+      getApplicationFlowData(),
+      getFollowUpsData(state.quietDays),
+      getNetworkData()
+    ]);
+  const boardApplications = filterAndSortApplications(
+    [...applications],
+    state.filters,
+    "last_activity",
+    "desc"
+  );
 
   return (
     <main className="app-shell">
@@ -41,107 +58,217 @@ export default async function Home({ searchParams }: HomeProps) {
         <div className="topbar-counts">
           <span>{applications.length} applications</span>
           <span>{recruiterOutreach.length} outreach</span>
+          <span>{network.contacts.length} contacts</span>
         </div>
       </header>
 
-      <section className="filter-panel" aria-label="Board filters">
-        <form className="filters" action="/" method="get">
-          <label className="field">
-            <span>Stage</span>
-            <select name="stage" defaultValue={filters.stage ?? ""}>
-              <option value="">All stages</option>
-              {stages.map((stage) => (
-                <option key={stage} value={stage}>
-                  {stage}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Company</span>
-            <input name="q" defaultValue={filters.query ?? ""} placeholder="Search company" />
-          </label>
-          <label className="checkbox-field">
-            <input
-              type="checkbox"
-              name="orphan"
-              value="1"
-              defaultChecked={filters.orphanOnly}
-            />
-            <span>Orphans only</span>
-          </label>
-          <button className="primary-button" type="submit">
-            Apply
-          </button>
-          <Link className="secondary-link" href="/">
-            Clear
+      {status ? <p className="status-message">{statusMessage(status)}</p> : null}
+
+      <nav className="dashboard-tabs" aria-label="Dashboard views">
+        {tabs.map((tab) => (
+          <Link
+            aria-current={state.view === tab.view ? "page" : undefined}
+            className={state.view === tab.view ? "active" : ""}
+            href={tabHref(tab.view)}
+            key={tab.view}
+          >
+            {tab.label}
           </Link>
-        </form>
-      </section>
+        ))}
+      </nav>
 
-      <ApplicationFlowSankey data={applicationFlow} />
+      {state.view === "table" ? (
+        <ApplicationTableView applications={applications} state={state} />
+      ) : null}
 
-      <section className="board" aria-label="Application board">
-        {stages.map((stage) => {
-          const stageApplications = grouped.get(stage) ?? [];
-          return (
-            <section className="stage-column" key={stage}>
-              <div className="stage-header">
-                <h2>{stage}</h2>
-                <span>{stageApplications.length}</span>
-              </div>
-              <div className="card-stack">
-                {stageApplications.length ? (
-                  stageApplications.map((application) => (
-                    <Link
-                      className="application-card"
-                      href={`/applications/${application.id}`}
-                      key={application.id}
-                    >
-                      <div>
-                        <h3>{application.company}</h3>
-                        {application.role ? <p>{application.role}</p> : null}
-                      </div>
-                      <p className="muted">{timeAgo(application.last_activity)}</p>
-                      <div className="badge-row">
-                        {application.is_orphan ? <span className="badge">Orphan</span> : null}
-                        {application.stage_locked ? <span className="badge locked">Locked</span> : null}
-                      </div>
-                    </Link>
-                  ))
-                ) : (
-                  <p className="empty-column">No applications here.</p>
-                )}
-              </div>
-            </section>
-          );
-        })}
-      </section>
+      {state.view === "board" ? (
+        <>
+          <BoardFilters state={state} />
+          <ApplicationBoard applications={boardApplications} />
+        </>
+      ) : null}
 
-      <section className="outreach-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Separate bucket</p>
-            <h2>Recruiter Outreach</h2>
-          </div>
-          <p className="muted">Personal outreach that is not part of the application board.</p>
-        </div>
-        <div className="outreach-list">
-          {recruiterOutreach.length ? (
-            recruiterOutreach.map((item) => (
-              <Link className="outreach-row" href={`/applications/${item.id}`} key={item.id}>
-                <div>
-                  <h3>{item.company}</h3>
-                  {item.role ? <p>{item.role}</p> : null}
-                </div>
-                <span>{timeAgo(item.last_activity)}</span>
-              </Link>
-            ))
-          ) : (
-            <p className="empty-state">No recruiter outreach captured yet.</p>
-          )}
-        </div>
-      </section>
+      {state.view === "flow" ? <ApplicationFlowSankey data={applicationFlow} /> : null}
+
+      {state.view === "follow-ups" ? (
+        <>
+          <QuietDaysForm quietDays={state.quietDays} />
+          <FollowUpsView items={followUps} quietDays={state.quietDays} />
+        </>
+      ) : null}
+
+      {state.view === "network" ? (
+        <>
+          <ContactsSection
+            contacts={network.contacts}
+            applications={network.applications}
+            returnTo="/?view=network"
+          />
+          <RecruiterOutreach outreach={recruiterOutreach} />
+        </>
+      ) : null}
     </main>
   );
+}
+
+function BoardFilters({ state }: { state: ReturnType<typeof parseTableState> }) {
+  return (
+    <section className="filter-panel" aria-label="Board filters">
+      <form className="filters" action="/" method="get">
+        <input type="hidden" name="view" value="board" />
+        <label className="field">
+          <span>Stage</span>
+          <select name="stage" defaultValue={state.filters.stage ?? ""}>
+            <option value="">All stages</option>
+            {stages.map((stage) => (
+              <option key={stage} value={stage}>
+                {stage}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Company</span>
+          <input name="q" defaultValue={state.filters.query ?? ""} placeholder="Search company" />
+        </label>
+        <label className="checkbox-field">
+          <input
+            type="checkbox"
+            name="orphan"
+            value="1"
+            defaultChecked={state.filters.orphanOnly}
+          />
+          <span>Orphans only</span>
+        </label>
+        <button className="primary-button" type="submit">
+          Apply
+        </button>
+        <Link className="secondary-link" href="/?view=board">
+          Clear
+        </Link>
+      </form>
+    </section>
+  );
+}
+
+function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) {
+  const grouped = new Map<Stage, ApplicationRow[]>();
+  for (const stage of stages) {
+    grouped.set(stage, []);
+  }
+  for (const application of applications) {
+    grouped.get(application.stage)?.push(application);
+  }
+
+  return (
+    <section className="board" aria-label="Application board">
+      {stages.map((stage) => {
+        const stageApplications = grouped.get(stage) ?? [];
+        return (
+          <section className="stage-column" key={stage}>
+            <div className="stage-header">
+              <h2>{stage}</h2>
+              <span>{stageApplications.length}</span>
+            </div>
+            <div className="card-stack">
+              {stageApplications.length ? (
+                stageApplications.map((application) => (
+                  <Link
+                    className="application-card"
+                    href={`/applications/${application.id}`}
+                    key={application.id}
+                  >
+                    <div>
+                      <h3>{application.company}</h3>
+                      {application.role ? <p>{application.role}</p> : null}
+                    </div>
+                    <p className="muted">{timeAgo(application.last_activity)}</p>
+                    <div className="badge-row">
+                      <span className={`stage-pill ${stageClass(application.stage)}`}>
+                        {application.stage}
+                      </span>
+                      {application.priority ? (
+                        <span className={`priority-pill priority-${application.priority.toLowerCase()}`}>
+                          {application.priority}
+                        </span>
+                      ) : null}
+                      {application.is_orphan ? <span className="badge">Orphan</span> : null}
+                      {application.stage_locked ? <span className="badge locked">Locked</span> : null}
+                    </div>
+                  </Link>
+                ))
+              ) : (
+                <p className="empty-column">No applications here.</p>
+              )}
+            </div>
+          </section>
+        );
+      })}
+    </section>
+  );
+}
+
+function QuietDaysForm({ quietDays }: { quietDays: number }) {
+  return (
+    <section className="filter-panel" aria-label="Follow-up settings">
+      <form className="filters" action="/" method="get">
+        <input type="hidden" name="view" value="follow-ups" />
+        <label className="field">
+          <span>Quiet after</span>
+          <input min="1" name="quietDays" type="number" defaultValue={quietDays} />
+        </label>
+        <button className="primary-button" type="submit">
+          Apply
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function RecruiterOutreach({ outreach }: { outreach: ApplicationRow[] }) {
+  return (
+    <section className="outreach-section">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Separate bucket</p>
+          <h2>Recruiter Outreach</h2>
+        </div>
+        <p className="muted">Personal outreach that is not part of the application board.</p>
+      </div>
+      <div className="outreach-list">
+        {outreach.length ? (
+          outreach.map((item) => (
+            <Link className="outreach-row" href={`/applications/${item.id}`} key={item.id}>
+              <div>
+                <h3>{item.company}</h3>
+                {item.role ? <p>{item.role}</p> : null}
+              </div>
+              <span>{timeAgo(item.last_activity)}</span>
+            </Link>
+          ))
+        ) : (
+          <p className="empty-state">No recruiter outreach captured yet.</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function tabHref(view: DashboardView) {
+  return view === "table" ? "/" : `/?view=${view}`;
+}
+
+function readSingle(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function statusMessage(status: string) {
+  const messages: Record<string, string> = {
+    contact_saved: "Contact saved.",
+    contact_deleted: "Contact deleted.",
+    contact_invalid: "That contact request was not valid.",
+    contact_error: "The contact could not be saved."
+  };
+
+  return messages[status] ?? "Done.";
 }

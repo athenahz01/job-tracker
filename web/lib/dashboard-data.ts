@@ -1,7 +1,9 @@
 import "server-only";
 
+import { buildFollowUpItems } from "./followups";
 import { createSupabaseServerClient } from "./supabase";
-import { stageRank, type Stage, stages } from "./stages";
+import { stageRank, type Stage } from "./stages";
+import { type Priority, type Relationship } from "./tracker";
 
 export type ApplicationKind = "application" | "recruiter_outreach";
 
@@ -19,6 +21,14 @@ export type ApplicationRow = {
   stage_locked: boolean;
   kind: ApplicationKind;
   notes: string | null;
+  next_action: string | null;
+  follow_up_on: string | null;
+  salary: string | null;
+  location: string | null;
+  deadline: string | null;
+  priority: Priority | null;
+  tags: string[];
+  resume_version: string | null;
   first_seen: string;
   last_activity: string;
   created_at: string;
@@ -44,10 +54,31 @@ export type EmailEventRow = {
   processed_at: string;
 };
 
-export type BoardFilters = {
-  stage?: Stage;
-  orphanOnly: boolean;
-  query?: string;
+export type ContactRow = {
+  id: string;
+  name: string;
+  company: string | null;
+  title: string | null;
+  email: string | null;
+  linkedin_url: string | null;
+  relationship: Relationship | null;
+  application_id: string | null;
+  notes: string | null;
+  last_contacted: string | null;
+  next_follow_up: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ContactWithApplication = ContactRow & {
+  application: ApplicationSummary | null;
+};
+
+export type ApplicationSummary = {
+  id: string;
+  company: string;
+  role: string | null;
+  stage: Stage;
 };
 
 export type ApplicationFlowNode = {
@@ -79,6 +110,17 @@ export type ApplicationFlowData = {
   interviewedBeforeOutcome: InterviewedOutcomeApplication[];
 };
 
+export type FollowUpItem = {
+  id: string;
+  kind: "application_due" | "quiet_application" | "contact_due";
+  title: string;
+  subtitle: string;
+  dueOn: string;
+  overdueDays: number;
+  href: string;
+  stage?: Stage;
+};
+
 const activeFlowStages = [
   "Applied",
   "Assessment",
@@ -88,30 +130,16 @@ const activeFlowStages = [
   "Offer"
 ] as const satisfies readonly Stage[];
 
-export async function getDashboardData(filters: BoardFilters) {
+export async function getDashboardData() {
   const supabase = createSupabaseServerClient();
 
-  let applicationsQuery = supabase
-    .from("applications")
-    .select("*")
-    .eq("kind", "application")
-    .is("merged_into_id", null)
-    .order("last_activity", { ascending: false });
-
-  if (filters.stage) {
-    applicationsQuery = applicationsQuery.eq("stage", filters.stage);
-  }
-
-  if (filters.orphanOnly) {
-    applicationsQuery = applicationsQuery.eq("is_orphan", true);
-  }
-
-  if (filters.query) {
-    applicationsQuery = applicationsQuery.ilike("company", `%${filters.query}%`);
-  }
-
   const [applicationsResponse, recruiterResponse] = await Promise.all([
-    applicationsQuery,
+    supabase
+      .from("applications")
+      .select("*")
+      .eq("kind", "application")
+      .is("merged_into_id", null)
+      .order("last_activity", { ascending: false }),
     supabase
       .from("applications")
       .select("*")
@@ -125,8 +153,8 @@ export async function getDashboardData(filters: BoardFilters) {
   }
 
   return {
-    applications: (applicationsResponse.data ?? []) as ApplicationRow[],
-    recruiterOutreach: (recruiterResponse.data ?? []) as ApplicationRow[]
+    applications: normalizeApplications(applicationsResponse.data),
+    recruiterOutreach: normalizeApplications(recruiterResponse.data)
   };
 }
 
@@ -143,7 +171,7 @@ export async function getApplicationFlowData(): Promise<ApplicationFlowData> {
     throw new Error("Could not load application flow data.");
   }
 
-  const applications = ((applicationsResponse.data ?? []) as ApplicationRow[]).filter(
+  const applications = normalizeApplications(applicationsResponse.data).filter(
     (application) => application.stage !== "Saved"
   );
 
@@ -176,55 +204,148 @@ export async function getApplicationFlowData(): Promise<ApplicationFlowData> {
   return buildApplicationFlow(applications, eventsByApplication);
 }
 
-export async function getApplicationDetail(id: string) {
+export async function getFollowUpsData(quietDays = 14) {
+  const supabase = createSupabaseServerClient();
+  const [applicationsResponse, contactsResponse] = await Promise.all([
+    supabase
+      .from("applications")
+      .select("*")
+      .eq("kind", "application")
+      .is("merged_into_id", null),
+    supabase.from("contacts").select("*")
+  ]);
+
+  if (applicationsResponse.error || contactsResponse.error) {
+    throw new Error("Could not load follow-ups.");
+  }
+
+  return buildFollowUpItems(
+    normalizeApplications(applicationsResponse.data),
+    (contactsResponse.data ?? []) as ContactRow[],
+    new Date(),
+    quietDays
+  );
+}
+
+export async function getNetworkData() {
   const supabase = createSupabaseServerClient();
 
-  const [applicationResponse, eventsResponse, mergeTargetsResponse] = await Promise.all([
+  const [contactsResponse, applicationsResponse] = await Promise.all([
+    supabase.from("contacts").select("*").order("next_follow_up", {
+      ascending: true,
+      nullsFirst: false
+    }),
     supabase
       .from("applications")
-      .select("*")
-      .eq("id", id)
-      .is("merged_into_id", null)
-      .maybeSingle(),
-    supabase
-      .from("email_events")
-      .select("*")
-      .eq("application_id", id)
-      .order("received_at", { ascending: false, nullsFirst: false }),
-    supabase
-      .from("applications")
-      .select("id, company, role, stage, last_activity, is_orphan, kind")
+      .select("id, company, role, stage, kind, merged_into_id")
       .eq("kind", "application")
       .is("merged_into_id", null)
       .order("company", { ascending: true })
   ]);
 
-  if (applicationResponse.error || eventsResponse.error || mergeTargetsResponse.error) {
+  if (contactsResponse.error || applicationsResponse.error) {
+    throw new Error("Could not load network data.");
+  }
+
+  const applications = normalizeApplications(applicationsResponse.data);
+  return {
+    contacts: linkContactsToApplications((contactsResponse.data ?? []) as ContactRow[], applications),
+    applications: applications.map((application) => ({
+      id: application.id,
+      company: application.company,
+      role: application.role,
+      stage: application.stage
+    }))
+  };
+}
+
+export async function getApplicationDetail(id: string) {
+  const supabase = createSupabaseServerClient();
+
+  const [applicationResponse, eventsResponse, mergeTargetsResponse, contactsResponse] =
+    await Promise.all([
+      supabase
+        .from("applications")
+        .select("*")
+        .eq("id", id)
+        .is("merged_into_id", null)
+        .maybeSingle(),
+      supabase
+        .from("email_events")
+        .select("*")
+        .eq("application_id", id)
+        .order("received_at", { ascending: false, nullsFirst: false }),
+      supabase
+        .from("applications")
+        .select("id, company, role, stage, last_activity, is_orphan, kind")
+        .eq("kind", "application")
+        .is("merged_into_id", null)
+        .order("company", { ascending: true }),
+      supabase
+        .from("contacts")
+        .select("*")
+        .eq("application_id", id)
+        .order("next_follow_up", { ascending: true, nullsFirst: false })
+    ]);
+
+  if (
+    applicationResponse.error ||
+    eventsResponse.error ||
+    mergeTargetsResponse.error ||
+    contactsResponse.error
+  ) {
     throw new Error("Could not load application detail.");
   }
 
   return {
-    application: applicationResponse.data as ApplicationRow | null,
+    application: applicationResponse.data
+      ? normalizeApplications([applicationResponse.data])[0]
+      : null,
     events: (eventsResponse.data ?? []) as EmailEventRow[],
-    mergeTargets: ((mergeTargetsResponse.data ?? []) as ApplicationRow[]).filter(
+    mergeTargets: normalizeApplications(mergeTargetsResponse.data).filter(
       (application) => application.id !== id
-    )
+    ),
+    contacts: (contactsResponse.data ?? []) as ContactRow[]
   };
 }
 
-export function parseFilters(params: Record<string, string | string[] | undefined>) {
-  const requestedStage = readSingle(params.stage);
-  const stage = stages.includes(requestedStage as Stage)
-    ? (requestedStage as Stage)
-    : undefined;
-  const orphanOnly = readSingle(params.orphan) === "1";
-  const query = readSingle(params.q)?.trim() || undefined;
-
-  return { stage, orphanOnly, query };
+function normalizeApplications(rows: unknown): ApplicationRow[] {
+  return ((rows ?? []) as ApplicationRow[]).map((row) => ({
+    ...row,
+    tags: Array.isArray(row.tags) ? row.tags : [],
+    priority: row.priority ?? null,
+    next_action: row.next_action ?? null,
+    follow_up_on: row.follow_up_on ?? null,
+    salary: row.salary ?? null,
+    location: row.location ?? null,
+    deadline: row.deadline ?? null,
+    resume_version: row.resume_version ?? null
+  }));
 }
 
-function readSingle(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
+function linkContactsToApplications(
+  contacts: ContactRow[],
+  applications: ApplicationRow[]
+): ContactWithApplication[] {
+  const applicationsById = new Map(applications.map((application) => [application.id, application]));
+  return contacts.map((contact) => ({
+    ...contact,
+    application: contact.application_id
+      ? toApplicationSummary(applicationsById.get(contact.application_id))
+      : null
+  }));
+}
+
+function toApplicationSummary(application: ApplicationRow | undefined): ApplicationSummary | null {
+  if (!application) {
+    return null;
+  }
+  return {
+    id: application.id,
+    company: application.company,
+    role: application.role,
+    stage: application.stage
+  };
 }
 
 function buildApplicationFlow(

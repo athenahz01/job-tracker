@@ -1,4 +1,4 @@
-import { EmailEventRow } from "./dashboard-data";
+import type { EmailEventRow } from "./dashboard-data";
 
 export function timeAgo(value: string | null | undefined) {
   if (!value) {

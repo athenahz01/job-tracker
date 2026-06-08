@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 
+import ContactsSection from "../../../components/ContactsSection";
 import MergeForm from "../../../components/MergeForm";
 import {
   clearStageLockAction,
-  setStageAction
+  setStageAction,
+  updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
 import { formatConfidence, formatDate, gmailUrl, timeAgo } from "../../../lib/format";
+import { priorityClass, stageClass } from "../../../lib/style-utils";
 import { stages } from "../../../lib/stages";
+import { priorities } from "../../../lib/tracker";
 
 export const dynamic = "force-dynamic";
 
@@ -21,18 +26,24 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
   const { id } = await params;
   const query = (await searchParams) ?? {};
   const status = readSingle(query.status);
-  const { application, events, mergeTargets } = await getApplicationDetail(id);
+  const { application, events, mergeTargets, contacts } = await getApplicationDetail(id);
 
   if (!application) {
     notFound();
   }
 
   const isRecruiterOutreach = application.kind === "recruiter_outreach";
+  const applicationSummary = {
+    id: application.id,
+    company: application.company,
+    role: application.role,
+    stage: application.stage
+  };
 
   return (
     <main className="detail-shell">
       <Link className="back-link" href="/">
-        Back to board
+        Back to dashboard
       </Link>
 
       {status ? <p className="status-message">{statusMessage(status)}</p> : null}
@@ -47,50 +58,116 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
             {application.role ? <p className="detail-role">{application.role}</p> : null}
           </div>
           <div className="badge-row">
-            <span className="badge">{application.stage}</span>
+            <span className={`stage-pill ${stageClass(application.stage)}`}>
+              {application.stage}
+            </span>
+            {application.priority ? (
+              <span className={`priority-pill ${priorityClass(application.priority)}`}>
+                {application.priority}
+              </span>
+            ) : null}
             {application.is_orphan ? <span className="badge">Orphan</span> : null}
             {application.stage_locked ? <span className="badge locked">Locked</span> : null}
           </div>
         </div>
 
         <dl className="detail-grid">
-          <div>
-            <dt>Last activity</dt>
-            <dd>
-              {formatDate(application.last_activity)}
-              <span>{timeAgo(application.last_activity)}</span>
-            </dd>
-          </div>
-          <div>
-            <dt>First seen</dt>
-            <dd>{formatDate(application.first_seen)}</dd>
-          </div>
-          <div>
-            <dt>Source</dt>
-            <dd>{application.source || "Not set"}</dd>
-          </div>
-          <div>
-            <dt>Company domain</dt>
-            <dd>{application.company_domain || "Not set"}</dd>
-          </div>
+          <DetailValue label="Last activity">
+            {formatDate(application.last_activity)}
+            <span>{timeAgo(application.last_activity)}</span>
+          </DetailValue>
+          <DetailValue label="First seen">{formatDate(application.first_seen)}</DetailValue>
+          <DetailValue label="Source">{application.source || "Not set"}</DetailValue>
+          <DetailValue label="Company domain">
+            {application.company_domain || "Not set"}
+          </DetailValue>
+          <DetailValue label="Next action">{application.next_action || "Not set"}</DetailValue>
+          <DetailValue label="Follow-up">{application.follow_up_on || "Not set"}</DetailValue>
+          <DetailValue label="Salary">{application.salary || "Not set"}</DetailValue>
+          <DetailValue label="Location">{application.location || "Not set"}</DetailValue>
+          <DetailValue label="Deadline">{application.deadline || "Not set"}</DetailValue>
+          <DetailValue label="Resume">{application.resume_version || "Not set"}</DetailValue>
+          <DetailValue label="Tags">
+            <span className="chip-row">
+              {application.tags.length ? (
+                application.tags.map((tag) => (
+                  <span className="tag-chip" key={tag}>
+                    {tag}
+                  </span>
+                ))
+              ) : (
+                "No tags"
+              )}
+            </span>
+          </DetailValue>
           {application.url ? (
-            <div>
-              <dt>Posting</dt>
-              <dd>
-                <a href={application.url} target="_blank" rel="noreferrer">
-                  Open posting
-                </a>
-              </dd>
-            </div>
+            <DetailValue label="Posting">
+              <a href={application.url} target="_blank" rel="noreferrer">
+                Open posting
+              </a>
+            </DetailValue>
           ) : null}
-          {application.notes ? (
-            <div>
-              <dt>Notes</dt>
-              <dd>{application.notes}</dd>
-            </div>
-          ) : null}
+          {application.notes ? <DetailValue label="Notes">{application.notes}</DetailValue> : null}
         </dl>
       </section>
+
+      {!isRecruiterOutreach ? (
+        <section className="action-panel tracker-editor">
+          <div>
+            <h2>Tracker Fields</h2>
+            <p className="muted">Manual notes for planning, follow-ups, and search context.</p>
+          </div>
+          <form action={updateApplicationTrackerFieldsAction} className="tracker-form">
+            <input type="hidden" name="applicationId" value={application.id} />
+            <label className="field">
+              <span>Next action</span>
+              <input name="nextAction" defaultValue={application.next_action ?? ""} />
+            </label>
+            <label className="field">
+              <span>Follow-up date</span>
+              <input name="followUpOn" type="date" defaultValue={application.follow_up_on ?? ""} />
+            </label>
+            <label className="field">
+              <span>Salary</span>
+              <input name="salary" defaultValue={application.salary ?? ""} />
+            </label>
+            <label className="field">
+              <span>Location</span>
+              <input name="location" defaultValue={application.location ?? ""} />
+            </label>
+            <label className="field">
+              <span>Deadline</span>
+              <input name="deadline" type="date" defaultValue={application.deadline ?? ""} />
+            </label>
+            <label className="field">
+              <span>Priority</span>
+              <select name="priority" defaultValue={application.priority ?? ""}>
+                <option value="">None</option>
+                {priorities.map((priority) => (
+                  <option key={priority} value={priority}>
+                    {priority}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="field">
+              <span>Tags</span>
+              <input name="tags" defaultValue={application.tags.join(", ")} />
+            </label>
+            <label className="field">
+              <span>Resume version</span>
+              <input name="resumeVersion" defaultValue={application.resume_version ?? ""} />
+            </label>
+            <label className="field wide-field">
+              <span>Notes</span>
+              <textarea name="notes" defaultValue={application.notes ?? ""} rows={5} />
+            </label>
+            <button className="primary-button" type="submit">
+              Save fields
+            </button>
+          </form>
+        </section>
+      ) : null}
 
       {!isRecruiterOutreach ? (
         <section className="action-panel">
@@ -139,6 +216,17 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
         </section>
       ) : null}
 
+      {!isRecruiterOutreach ? (
+        <ContactsSection
+          eyebrow="Network"
+          title="Linked Contacts"
+          contacts={contacts}
+          applications={[applicationSummary]}
+          returnTo={`/applications/${application.id}`}
+          linkedApplicationId={application.id}
+        />
+      ) : null}
+
       <section className="timeline-section">
         <div className="section-heading">
           <div>
@@ -160,7 +248,11 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
                 <h3>{event.subject || "No subject"}</h3>
                 <p className="muted">{event.from_address || "Unknown sender"}</p>
                 <div className="badge-row">
-                  {event.detected_stage ? <span className="badge">{event.detected_stage}</span> : null}
+                  {event.detected_stage ? (
+                    <span className={`stage-pill ${stageClass(event.detected_stage)}`}>
+                      {event.detected_stage}
+                    </span>
+                  ) : null}
                   <span className="badge">{formatConfidence(event.confidence)}</span>
                   {event.category ? <span className="badge">{event.category}</span> : null}
                 </div>
@@ -176,6 +268,15 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
   );
 }
 
+function DetailValue({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  );
+}
+
 function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -185,10 +286,16 @@ function statusMessage(status: string) {
     stage_saved: "Stage saved and locked.",
     lock_cleared: "Automation lock cleared.",
     merged: "Orphan merged into this application.",
+    tracker_saved: "Tracker fields saved.",
+    contact_saved: "Contact saved.",
+    contact_deleted: "Contact deleted.",
+    contact_invalid: "That contact request was not valid.",
     invalid: "That request was not valid.",
     stage_error: "The stage could not be saved.",
     lock_error: "The lock could not be cleared.",
-    merge_error: "The merge could not be completed."
+    merge_error: "The merge could not be completed.",
+    tracker_error: "The tracker fields could not be saved.",
+    contact_error: "The contact could not be saved."
   };
 
   return messages[status] ?? "Done.";
