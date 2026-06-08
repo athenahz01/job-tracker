@@ -12,6 +12,7 @@ describe("insights calculations", () => {
       [
         application({ id: "saved", stage: "Saved" }),
         application({ id: "quiet", stage: "Applied", source: "extension" }),
+        application({ id: "created", stage: "Applied", source: "email" }),
         application({ id: "ghosted", stage: "Ghosted", source: "extension" }),
         application({ id: "rejected", stage: "Rejected", source: "email" }),
         application({ id: "assessment", stage: "Applied", source: "manual" }),
@@ -19,28 +20,51 @@ describe("insights calculations", () => {
         application({ id: "offer", stage: "Offer", source: "manual" })
       ],
       [
+        event({ application_id: "created", detected_stage: null }),
         event({ application_id: "assessment", detected_stage: "Assessment" }),
         event({ application_id: "interview", detected_stage: "Interview" }),
         event({ application_id: "offer", detected_stage: "Offer" })
       ]
     );
 
-    expect(data.totalApplied).toBe(6);
+    expect(data.totalApplied).toBe(7);
     expect(data.savedBacklog).toBe(1);
     expect(data.rates.response).toMatchObject({
       numerator: 4,
-      denominator: 6,
-      display: "67%"
+      denominator: 7,
+      display: "57%"
     });
     expect(data.rates.interview).toMatchObject({
       numerator: 2,
-      denominator: 6,
-      display: "33%"
+      denominator: 7,
+      display: "29%"
     });
     expect(data.rates.offer).toMatchObject({
       numerator: 1,
-      denominator: 6,
-      display: "17%"
+      denominator: 7,
+      display: "14%"
+    });
+  });
+
+  it("does not count a creating email event as a response without stage progress", () => {
+    const data = buildInsightsData(
+      [
+        application({ id: "created-only", stage: "Applied" }),
+        application({ id: "advanced", stage: "Assessment" })
+      ],
+      [event({ application_id: "created-only", detected_stage: null })]
+    );
+
+    expect(data.rates.response).toMatchObject({
+      numerator: 1,
+      denominator: 2,
+      display: "50%"
+    });
+    expect(data.funnel.find((step) => step.key === "responded")).toMatchObject({
+      count: 1
+    });
+    expect(data.funnel.find((step) => step.key === "assessment")).toMatchObject({
+      count: 1
     });
   });
 
@@ -96,35 +120,6 @@ describe("insights calculations", () => {
     expect(data.rates.interview.display).toBe("100%");
   });
 
-  it("calculates median days to first response and excludes applications without events", () => {
-    const data = buildInsightsData(
-      [
-        application({ id: "fast", first_seen: "2026-06-01T00:00:00.000Z" }),
-        application({ id: "slow", first_seen: "2026-06-01T00:00:00.000Z" }),
-        application({ id: "none", first_seen: "2026-06-01T00:00:00.000Z" })
-      ],
-      [
-        event({
-          application_id: "fast",
-          received_at: "2026-06-02T00:00:00.000Z"
-        }),
-        event({
-          application_id: "slow",
-          received_at: "2026-06-05T00:00:00.000Z"
-        }),
-        event({
-          application_id: "slow",
-          received_at: "2026-06-07T00:00:00.000Z"
-        })
-      ]
-    );
-
-    expect(data.timing.firstResponse).toEqual({
-      days: 2.5,
-      display: "2.5 days",
-      count: 2
-    });
-  });
 });
 
 function application(overrides: Partial<InsightsApplication>): InsightsApplication {

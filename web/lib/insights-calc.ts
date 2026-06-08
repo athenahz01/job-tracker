@@ -43,24 +43,6 @@ export type WeeklyApplicationCount = {
   count: number;
 };
 
-export type SourceInsight = {
-  source: string;
-  count: number;
-  responseRate: RateMetric;
-  interviewRate: RateMetric;
-};
-
-export type TimingMetric = {
-  days: number | null;
-  display: string;
-  count: number;
-};
-
-export type RankedCount = {
-  label: string;
-  count: number;
-};
-
 export type InsightsData = {
   totalApplied: number;
   savedBacklog: number;
@@ -72,17 +54,9 @@ export type InsightsData = {
   };
   funnel: FunnelStep[];
   weeklyApplications: WeeklyApplicationCount[];
-  bySource: SourceInsight[];
-  timing: {
-    firstResponse: TimingMetric;
-    interview: TimingMetric | null;
-  };
-  topTags: RankedCount[];
-  topCompanies: RankedCount[];
 };
 
 type ApplicationSummary = InsightsApplication & {
-  events: InsightsEvent[];
   furthestStage: Stage;
   responded: boolean;
   reachedAssessment: boolean;
@@ -127,18 +101,16 @@ export function buildInsightsData(
     totalApplied,
     savedBacklog,
     headlines: [
-      { label: "Total applied", value: totalApplied },
+      { label: "Applied", value: totalApplied },
       {
-        label: "Currently active",
+        label: "Active",
         value: summaries.filter((application) => activeCurrentStages.has(application.stage)).length
       },
       { label: "Offers", value: summaries.filter((application) => application.stage === "Offer").length },
       {
-        label: "Rejections",
+        label: "Rejected",
         value: summaries.filter((application) => application.stage === "Rejected").length
-      },
-      { label: "Ghosted", value: summaries.filter((application) => application.stage === "Ghosted").length },
-      { label: "Saved backlog", value: savedBacklog }
+      }
     ],
     rates: {
       response: rate(respondedCount, totalApplied),
@@ -146,17 +118,7 @@ export function buildInsightsData(
       offer: rate(offerCount, totalApplied)
     },
     funnel: buildFunnel(summaries),
-    weeklyApplications: buildWeeklyApplications(summaries),
-    bySource: buildSourceInsights(summaries),
-    timing: buildTimingInsights(summaries),
-    topTags: topCounts(
-      summaries.flatMap((application) => Array.from(new Set(application.tags ?? []))),
-      5
-    ),
-    topCompanies: topCounts(
-      summaries.map((application) => cleanLabel(application.company) || "Unknown company"),
-      5
-    )
+    weeklyApplications: buildWeeklyApplications(summaries)
   };
 }
 
@@ -169,14 +131,10 @@ function summarizeApplication(
     .filter((stage): stage is Stage => Boolean(stage));
   const furthestStage = getFurthestActiveStage(application.stage, detectedStages);
   const furthestRank = stageRank[furthestStage] ?? 0;
-  const responded =
-    furthestRank > (stageRank.Applied ?? 0) ||
-    events.length > 0 ||
-    application.stage === "Rejected";
+  const responded = furthestRank > (stageRank.Applied ?? 0) || application.stage === "Rejected";
 
   return {
     ...application,
-    events,
     furthestStage,
     responded,
     reachedAssessment: furthestRank >= (stageRank.Assessment ?? Number.POSITIVE_INFINITY),
@@ -192,26 +150,10 @@ function buildFunnel(summaries: ApplicationSummary[]): FunnelStep[] {
   const counts = [
     ["applied", "Applied", totalApplied],
     ["responded", "Responded", summaries.filter((application) => application.responded).length],
-    [
-      "assessment",
-      "Reached assessment or beyond",
-      summaries.filter((application) => application.reachedAssessment).length
-    ],
-    [
-      "phone",
-      "Reached phone screen or beyond",
-      summaries.filter((application) => application.reachedPhoneScreen).length
-    ],
-    [
-      "interview",
-      "Reached interview or beyond",
-      summaries.filter((application) => application.reachedInterview).length
-    ],
-    [
-      "final",
-      "Reached final or beyond",
-      summaries.filter((application) => application.reachedFinal).length
-    ],
+    ["assessment", "Assessment+", summaries.filter((application) => application.reachedAssessment).length],
+    ["phone", "Phone screen+", summaries.filter((application) => application.reachedPhoneScreen).length],
+    ["interview", "Interview+", summaries.filter((application) => application.reachedInterview).length],
+    ["final", "Final+", summaries.filter((application) => application.reachedFinal).length],
     ["offer", "Offer", summaries.filter((application) => application.reachedOffer).length]
   ] as const;
 
@@ -252,68 +194,6 @@ function buildWeeklyApplications(summaries: ApplicationSummary[]) {
   });
 }
 
-function buildSourceInsights(summaries: ApplicationSummary[]) {
-  const bySource = new Map<string, ApplicationSummary[]>();
-  for (const application of summaries) {
-    const source = cleanLabel(application.source) || "Not set";
-    const rows = bySource.get(source) ?? [];
-    rows.push(application);
-    bySource.set(source, rows);
-  }
-
-  return [...bySource.entries()]
-    .map(([source, rows]) => ({
-      source,
-      count: rows.length,
-      responseRate: rate(rows.filter((application) => application.responded).length, rows.length),
-      interviewRate: rate(
-        rows.filter((application) => application.reachedPhoneScreen).length,
-        rows.length
-      )
-    }))
-    .sort((left, right) => right.count - left.count || left.source.localeCompare(right.source));
-}
-
-function buildTimingInsights(summaries: ApplicationSummary[]) {
-  const firstResponseDays: number[] = [];
-  const interviewDays: number[] = [];
-
-  for (const application of summaries) {
-    const firstSeen = parseDate(application.first_seen);
-    if (!firstSeen) {
-      continue;
-    }
-
-    const eventDates = application.events
-      .map((event) => parseDate(event.received_at))
-      .filter((date): date is Date => Boolean(date))
-      .sort((left, right) => left.getTime() - right.getTime());
-    if (eventDates.length) {
-      firstResponseDays.push(daysBetween(firstSeen, eventDates[0]));
-    }
-
-    const interviewDate = application.events
-      .filter(
-        (event) =>
-          event.detected_stage !== null &&
-          (stageRank[event.detected_stage] ?? 0) >= (stageRank["Phone Screen"] ?? 0)
-      )
-      .map((event) => parseDate(event.received_at))
-      .filter((date): date is Date => Boolean(date))
-      .sort((left, right) => left.getTime() - right.getTime())[0];
-
-    if (interviewDate) {
-      interviewDays.push(daysBetween(firstSeen, interviewDate));
-    }
-  }
-
-  const interviewMetric = timingMetric(interviewDays);
-  return {
-    firstResponse: timingMetric(firstResponseDays),
-    interview: interviewMetric.count ? interviewMetric : null
-  };
-}
-
 function groupEventsByApplication(events: InsightsEvent[]) {
   const grouped = new Map<string, InsightsEvent[]>();
   for (const event of events) {
@@ -346,44 +226,6 @@ function rate(numerator: number, denominator: number): RateMetric {
   };
 }
 
-function timingMetric(days: number[]): TimingMetric {
-  const value = median(days);
-  return {
-    days: value,
-    display: value === null ? "-" : formatDays(value),
-    count: days.length
-  };
-}
-
-function median(values: number[]) {
-  if (!values.length) {
-    return null;
-  }
-
-  const sorted = [...values].sort((left, right) => left - right);
-  const midpoint = Math.floor(sorted.length / 2);
-  if (sorted.length % 2) {
-    return roundDays(sorted[midpoint]);
-  }
-  return roundDays((sorted[midpoint - 1] + sorted[midpoint]) / 2);
-}
-
-function topCounts(values: string[], limit: number): RankedCount[] {
-  const counts = new Map<string, number>();
-  for (const value of values) {
-    const label = cleanLabel(value);
-    if (!label) {
-      continue;
-    }
-    counts.set(label, (counts.get(label) ?? 0) + 1);
-  }
-
-  return [...counts.entries()]
-    .map(([label, count]) => ({ label, count }))
-    .sort((left, right) => right.count - left.count || left.label.localeCompare(right.label))
-    .slice(0, limit);
-}
-
 function parseDate(value: string | null) {
   if (!value) {
     return null;
@@ -411,21 +253,4 @@ function formatWeekLabel(date: Date) {
     day: "numeric",
     timeZone: "UTC"
   }).format(date);
-}
-
-function daysBetween(start: Date, end: Date) {
-  return Math.max(0, (end.getTime() - start.getTime()) / 86400000);
-}
-
-function roundDays(value: number) {
-  return Math.round(value * 10) / 10;
-}
-
-function formatDays(value: number) {
-  const rounded = roundDays(value);
-  return `${rounded} day${rounded === 1 ? "" : "s"}`;
-}
-
-function cleanLabel(value: string | null | undefined) {
-  return typeof value === "string" ? value.trim() : "";
 }
