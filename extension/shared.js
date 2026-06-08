@@ -77,9 +77,10 @@
     const recent = result[recentPostsKey] || {};
     const cleaned = {};
 
-    for (const [url, timestamp] of Object.entries(recent)) {
-      if (typeof timestamp === "number" && now - timestamp < recentWindowMs) {
-        cleaned[url] = timestamp;
+    for (const [url, entry] of Object.entries(recent)) {
+      const normalized = normalizeRecentPost(entry);
+      if (normalized && now - normalized.timestamp < recentWindowMs) {
+        cleaned[url] = normalized;
       }
     }
 
@@ -87,13 +88,47 @@
     return cleaned;
   }
 
-  async function rememberPost(url) {
+  function normalizeRecentPost(entry) {
+    if (typeof entry === "number") {
+      return { timestamp: entry, stage: "" };
+    }
+
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+
+    const timestamp = Number(entry.timestamp);
+    if (!Number.isFinite(timestamp)) {
+      return null;
+    }
+
+    const stage = entry.stage === "Applied" || entry.stage === "Saved" ? entry.stage : "";
+    return { timestamp, stage };
+  }
+
+  function recentPostCoversStage(entry, stage) {
+    const normalized = normalizeRecentPost(entry);
+    if (!normalized) {
+      return false;
+    }
+
+    if (!normalized.stage) {
+      return stage !== "Applied";
+    }
+
+    return normalized.stage === stage || normalized.stage === "Applied";
+  }
+
+  async function rememberPost(url, stage) {
     if (!url) {
       return;
     }
 
     const recent = await getRecentPosts();
-    recent[url] = Date.now();
+    recent[url] = {
+      timestamp: Date.now(),
+      stage: stage === "Applied" ? "Applied" : "Saved"
+    };
     await storageSet({ [recentPostsKey]: recent });
   }
 
@@ -102,6 +137,7 @@
     cleanJobUrl,
     getRecentPosts,
     getSettings,
+    recentPostCoversStage,
     rememberPost,
     saveSettings,
     settingsAreReady,

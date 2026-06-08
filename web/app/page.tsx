@@ -1,6 +1,11 @@
 import Link from "next/link";
 
-import { getDashboardData, parseFilters } from "../lib/dashboard-data";
+import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
+import {
+  getApplicationFlowData,
+  getDashboardData,
+  parseFilters
+} from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
 import { Stage, stages } from "../lib/stages";
 
@@ -13,7 +18,10 @@ type HomeProps = {
 export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const filters = parseFilters(params);
-  const { applications, recruiterOutreach } = await getDashboardData(filters);
+  const [{ applications, recruiterOutreach }, applicationFlow] = await Promise.all([
+    getDashboardData(filters),
+    getApplicationFlowData()
+  ]);
 
   const grouped = new Map<Stage, typeof applications>();
   for (const stage of stages) {
@@ -70,6 +78,8 @@ export default async function Home({ searchParams }: HomeProps) {
           </Link>
         </form>
       </section>
+
+      <ApplicationFlowSankey data={applicationFlow} />
 
       <section className="board" aria-label="Application board">
         {stages.map((stage) => {

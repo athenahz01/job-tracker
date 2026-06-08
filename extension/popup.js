@@ -9,6 +9,7 @@
   const roleInput = document.getElementById("role");
   let pendingCapture = null;
   let pendingSource = "extension";
+  let pendingStage = "Saved";
 
   init();
 
@@ -31,9 +32,10 @@
       const capture = await scrapeActiveTab();
       pendingCapture = capture;
       pendingSource = capture.genericSubmitted ? "extension_heuristic" : "extension";
+      pendingStage = capture.confirmation || capture.genericSubmitted ? "Applied" : "Saved";
 
       if (capture.genericSubmitted) {
-        const confirmed = window.confirm("This looks like a submitted application. Log it?");
+        const confirmed = window.confirm("This looks like a submitted application. Mark it as applied?");
         if (!confirmed) {
           setStatus("Not logged.", "");
           return;
@@ -48,7 +50,7 @@
         return;
       }
 
-      await postCapture(capture, pendingSource);
+      await postCapture(capture, pendingSource, pendingStage);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not read this page.", "error");
     } finally {
@@ -67,7 +69,7 @@
       company: companyInput.value,
       role: roleInput.value || pendingCapture.role
     };
-    await postCapture(capture, pendingSource);
+    await postCapture(capture, pendingSource, pendingStage);
   }
 
   async function scrapeActiveTab() {
@@ -93,12 +95,13 @@
     return result.result;
   }
 
-  async function postCapture(capture, source) {
-    setStatus("Saving...", "");
+  async function postCapture(capture, source, stage) {
+    setStatus(stage === "Applied" ? "Marking as applied..." : "Saving for later...", "");
     const response = await chrome.runtime.sendMessage({
       type: "SAVE_APPLICATION",
       capture,
       source,
+      stage,
       auto: false
     });
 
@@ -108,7 +111,11 @@
     }
 
     manualForm.hidden = true;
-    setStatus(response.deduped ? "Already logged." : "Logged.", "success");
+    if (stage === "Applied") {
+      setStatus(response.deduped ? "Moved to Applied." : "Marked as applied.", "success");
+      return;
+    }
+    setStatus(response.deduped ? "Already saved." : "Saved for later.", "success");
   }
 
   function setStatus(message, className) {

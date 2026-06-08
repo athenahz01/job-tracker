@@ -5,7 +5,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  saveApplication(message.capture, message.source, Boolean(message.auto))
+  saveApplication(message.capture, message.source, Boolean(message.auto), message.stage)
     .then(sendResponse)
     .catch((error) => {
       sendResponse({
@@ -17,8 +17,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
-async function saveApplication(capture, source, auto) {
+async function saveApplication(capture, source, auto, requestedStage) {
   const shared = self.JobTrackerShared;
+  const stage =
+    requestedStage === "Applied" || requestedStage === "Saved"
+      ? requestedStage
+      : auto
+        ? "Applied"
+        : "Saved";
   const settings = await shared.getSettings();
   if (!shared.settingsAreReady(settings)) {
     return {
@@ -30,7 +36,7 @@ async function saveApplication(capture, source, auto) {
   const url = shared.cleanJobUrl(capture && capture.url);
   if (url) {
     const recent = await shared.getRecentPosts();
-    if (recent[url]) {
+    if (shared.recentPostCoversStage(recent[url], stage)) {
       return {
         ok: true,
         deduped: true,
@@ -50,7 +56,8 @@ async function saveApplication(capture, source, auto) {
     role: shared.trimText(capture && capture.role, 220) || null,
     url: url || null,
     notes: shared.trimText(capture && capture.notes, 9000) || null,
-    source: source || (auto ? "extension" : "extension")
+    source: source || "extension",
+    stage
   };
 
   let response;
@@ -80,7 +87,7 @@ async function saveApplication(capture, source, auto) {
   }
 
   if (url) {
-    await shared.rememberPost(url);
+    await shared.rememberPost(url, stage);
   }
 
   return {

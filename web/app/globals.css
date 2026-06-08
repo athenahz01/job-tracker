@@ -100,6 +100,7 @@ select {
 .action-panel,
 .detail-card,
 .timeline-section,
+.flow-panel,
 .outreach-section,
 .login-box {
   background: var(--panel);
@@ -111,6 +112,44 @@ select {
 .filter-panel {
   margin-bottom: 18px;
   padding: 14px;
+}
+
+.flow-panel {
+  margin-bottom: 18px;
+  padding: 16px;
+}
+
+.flow-count {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f9fbfa;
+  color: var(--muted);
+  padding: 5px 9px;
+  font-size: 13px;
+}
+
+.flow-chart-wrap {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.flow-chart {
+  display: block;
+  width: 100%;
+  min-width: 760px;
+  height: auto;
+}
+
+.flow-node-label {
+  fill: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.flow-empty {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .filters,

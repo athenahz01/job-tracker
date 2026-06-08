@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createSupabaseServerClient } from "./supabase";
-import { Stage, stages } from "./stages";
+import { stageRank, type Stage, stages } from "./stages";
 
 export type ApplicationKind = "application" | "recruiter_outreach";
 
@@ -50,6 +50,44 @@ export type BoardFilters = {
   query?: string;
 };
 
+export type ApplicationFlowNode = {
+  id: string;
+  label: string;
+  count: number;
+  level: number;
+  tone: "base" | "interview" | "offer" | "rejected" | "no-response" | "progress";
+};
+
+export type ApplicationFlowLink = {
+  source: string;
+  target: string;
+  value: number;
+  tone: ApplicationFlowNode["tone"];
+};
+
+export type InterviewedOutcomeApplication = {
+  id: string;
+  company: string;
+  role: string | null;
+  outcome: "Rejected" | "Ghosted";
+};
+
+export type ApplicationFlowData = {
+  total: number;
+  nodes: ApplicationFlowNode[];
+  links: ApplicationFlowLink[];
+  interviewedBeforeOutcome: InterviewedOutcomeApplication[];
+};
+
+const activeFlowStages = [
+  "Applied",
+  "Assessment",
+  "Phone Screen",
+  "Interview",
+  "Final",
+  "Offer"
+] as const satisfies readonly Stage[];
+
 export async function getDashboardData(filters: BoardFilters) {
   const supabase = createSupabaseServerClient();
 
@@ -90,6 +128,52 @@ export async function getDashboardData(filters: BoardFilters) {
     applications: (applicationsResponse.data ?? []) as ApplicationRow[],
     recruiterOutreach: (recruiterResponse.data ?? []) as ApplicationRow[]
   };
+}
+
+export async function getApplicationFlowData(): Promise<ApplicationFlowData> {
+  const supabase = createSupabaseServerClient();
+
+  const applicationsResponse = await supabase
+    .from("applications")
+    .select("id, company, role, stage, kind, merged_into_id")
+    .eq("kind", "application")
+    .is("merged_into_id", null);
+
+  if (applicationsResponse.error) {
+    throw new Error("Could not load application flow data.");
+  }
+
+  const applications = ((applicationsResponse.data ?? []) as ApplicationRow[]).filter(
+    (application) => application.stage !== "Saved"
+  );
+
+  if (!applications.length) {
+    return buildApplicationFlow([], new Map());
+  }
+
+  const eventsResponse = await supabase
+    .from("email_events")
+    .select("application_id, detected_stage")
+    .in(
+      "application_id",
+      applications.map((application) => application.id)
+    );
+
+  if (eventsResponse.error) {
+    throw new Error("Could not load application flow events.");
+  }
+
+  const eventsByApplication = new Map<string, Stage[]>();
+  for (const event of (eventsResponse.data ?? []) as EmailEventRow[]) {
+    if (!event.application_id || !event.detected_stage) {
+      continue;
+    }
+    const events = eventsByApplication.get(event.application_id) ?? [];
+    events.push(event.detected_stage);
+    eventsByApplication.set(event.application_id, events);
+  }
+
+  return buildApplicationFlow(applications, eventsByApplication);
 }
 
 export async function getApplicationDetail(id: string) {
@@ -141,4 +225,166 @@ export function parseFilters(params: Record<string, string | string[] | undefine
 
 function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function buildApplicationFlow(
+  applications: ApplicationRow[],
+  eventsByApplication: Map<string, Stage[]>
+): ApplicationFlowData {
+  const counts = {
+    interviewed: 0,
+    rejected: 0,
+    noResponse: 0,
+    inProgress: 0,
+    offer: 0,
+    noOffer: 0,
+    noResponseAfterInterview: 0,
+    stillInterviewing: 0
+  };
+  const interviewedBeforeOutcome: InterviewedOutcomeApplication[] = [];
+
+  for (const application of applications) {
+    const furthestActiveStage = getFurthestActiveStage(
+      application.stage,
+      eventsByApplication.get(application.id) ?? []
+    );
+    const reachedInterview =
+      (stageRank[furthestActiveStage] ?? 0) >= stageRank["Phone Screen"]!;
+
+    if (!reachedInterview) {
+      if (application.stage === "Rejected") {
+        counts.rejected += 1;
+      } else if (application.stage === "Ghosted") {
+        counts.noResponse += 1;
+      } else {
+        counts.inProgress += 1;
+      }
+      continue;
+    }
+
+    counts.interviewed += 1;
+    if (furthestActiveStage === "Offer") {
+      counts.offer += 1;
+    } else if (application.stage === "Rejected") {
+      counts.noOffer += 1;
+      interviewedBeforeOutcome.push({
+        id: application.id,
+        company: application.company,
+        role: application.role,
+        outcome: "Rejected"
+      });
+    } else if (application.stage === "Ghosted") {
+      counts.noResponseAfterInterview += 1;
+      interviewedBeforeOutcome.push({
+        id: application.id,
+        company: application.company,
+        role: application.role,
+        outcome: "Ghosted"
+      });
+    } else {
+      counts.stillInterviewing += 1;
+    }
+  }
+
+  const total = applications.length;
+  const nodeCandidates: ApplicationFlowNode[] = [
+    node("applied", "Applied", total, 0, "base"),
+    node("interviewed", "Interviewed", counts.interviewed, 1, "interview"),
+    node("rejected", "Rejected", counts.rejected, 1, "rejected"),
+    node("no-response", "No response", counts.noResponse, 1, "no-response"),
+    node("in-progress", "In progress", counts.inProgress, 1, "progress"),
+    node("offer", "Offer", counts.offer, 2, "offer"),
+    node("no-offer", "No offer", counts.noOffer, 2, "rejected"),
+    node(
+      "no-response-after-interview",
+      "No response after interview",
+      counts.noResponseAfterInterview,
+      2,
+      "no-response"
+    ),
+    node("still-interviewing", "Still interviewing", counts.stillInterviewing, 2, "interview")
+  ];
+
+  // Offer can split to accepted and declined once the app tracks that outcome.
+  const linkCandidates: ApplicationFlowLink[] = [
+    link("applied", "interviewed", counts.interviewed, "interview"),
+    link("applied", "rejected", counts.rejected, "rejected"),
+    link("applied", "no-response", counts.noResponse, "no-response"),
+    link("applied", "in-progress", counts.inProgress, "progress"),
+    link("interviewed", "offer", counts.offer, "offer"),
+    link("interviewed", "no-offer", counts.noOffer, "rejected"),
+    link(
+      "interviewed",
+      "no-response-after-interview",
+      counts.noResponseAfterInterview,
+      "no-response"
+    ),
+    link("interviewed", "still-interviewing", counts.stillInterviewing, "interview")
+  ];
+
+  const links = linkCandidates.filter((item) => item.value > 0);
+  const visibleNodeIds = new Set<string>(["applied"]);
+  for (const item of links) {
+    visibleNodeIds.add(item.source);
+    visibleNodeIds.add(item.target);
+  }
+
+  return {
+    total,
+    nodes: nodeCandidates.filter((item) => visibleNodeIds.has(item.id) && item.count > 0),
+    links,
+    interviewedBeforeOutcome
+  };
+}
+
+function getFurthestActiveStage(currentStage: Stage, detectedStages: Stage[]) {
+  const touched = new Set<Stage>(["Applied"]);
+  for (const stage of detectedStages) {
+    if (isActiveFlowStage(stage)) {
+      touched.add(stage);
+    }
+  }
+  if (isActiveFlowStage(currentStage)) {
+    touched.add(currentStage);
+  }
+
+  return [...touched].reduce<Stage>(
+    (furthest, stage) =>
+      (stageRank[stage] ?? 0) > (stageRank[furthest] ?? 0) ? stage : furthest,
+    "Applied"
+  );
+}
+
+function isActiveFlowStage(stage: Stage): stage is (typeof activeFlowStages)[number] {
+  return activeFlowStages.includes(stage as (typeof activeFlowStages)[number]);
+}
+
+function node(
+  id: string,
+  name: string,
+  count: number,
+  level: ApplicationFlowNode["level"],
+  tone: ApplicationFlowNode["tone"]
+): ApplicationFlowNode {
+  return {
+    id,
+    label: `${name} (${count})`,
+    count,
+    level,
+    tone
+  };
+}
+
+function link(
+  source: string,
+  target: string,
+  value: number,
+  tone: ApplicationFlowLink["tone"]
+): ApplicationFlowLink {
+  return {
+    source,
+    target,
+    value,
+    tone
+  };
 }

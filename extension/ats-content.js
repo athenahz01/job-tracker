@@ -22,6 +22,7 @@
         type: "SAVE_APPLICATION",
         capture,
         source: "extension",
+        stage: "Applied",
         auto: true
       },
       () => {

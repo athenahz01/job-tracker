@@ -2,6 +2,7 @@ import { timingSafeEqual } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 
 import { createSupabaseServerClient } from "../../../lib/supabase";
+import { resolveForwardStage, stageRank, type Stage } from "../../../lib/stages";
 
 type ApplicationInput = {
   company?: unknown;
@@ -9,9 +10,11 @@ type ApplicationInput = {
   url?: unknown;
   source?: unknown;
   notes?: unknown;
+  stage?: unknown;
 };
 
 const dedupeWindowDays = 5;
+const extensionStages = new Set<Stage>(["Saved", "Applied"]);
 
 function secretsMatch(provided: string | null, expected: string | undefined) {
   if (!provided || !expected) {
@@ -44,6 +47,12 @@ function normalizeCompany(company: string) {
     .replace(/\s+/g, " ");
 }
 
+function parseExtensionStage(stage: unknown): Stage {
+  return typeof stage === "string" && extensionStages.has(stage as Stage)
+    ? (stage as Stage)
+    : "Saved";
+}
+
 export async function POST(request: NextRequest) {
   const providedSecret = request.headers.get("x-extension-api-secret");
 
@@ -69,6 +78,7 @@ export async function POST(request: NextRequest) {
   const url = optionalString(body.url);
   const source = optionalString(body.source) ?? "extension";
   const notes = optionalString(body.notes);
+  const stage = parseExtensionStage(body.stage);
   const normalizedCompany = normalizeCompany(company);
 
   try {
@@ -80,7 +90,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (existing) {
-      return NextResponse.json({ ...existing, deduped: true });
+      const application = await advanceExistingApplication(supabase, existing, stage);
+      return NextResponse.json({ ...application, deduped: true });
     }
 
     const { data, error } = await supabase
@@ -92,7 +103,7 @@ export async function POST(request: NextRequest) {
         url,
         source,
         notes,
-        stage: "Applied"
+        stage
       })
       .select("*")
       .single();
@@ -108,6 +119,45 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+async function advanceExistingApplication(
+  supabase: ReturnType<typeof createSupabaseServerClient>,
+  existing: { id: string; stage: Stage; stage_locked: boolean },
+  postedStage: Stage
+) {
+  if (existing.stage_locked) {
+    return existing;
+  }
+
+  const resolvedStage = resolveForwardStage(existing.stage, postedStage);
+  const currentRank = stageRank[existing.stage];
+  const resolvedRank = stageRank[resolvedStage];
+
+  if (
+    resolvedStage === existing.stage ||
+    currentRank === undefined ||
+    resolvedRank === undefined ||
+    resolvedRank <= currentRank
+  ) {
+    return existing;
+  }
+
+  const { data, error } = await supabase
+    .from("applications")
+    .update({
+      stage: resolvedStage,
+      last_activity: new Date().toISOString()
+    })
+    .eq("id", existing.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 async function findExistingApplication(
