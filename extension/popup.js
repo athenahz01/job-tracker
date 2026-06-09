@@ -128,7 +128,7 @@
 
     const [result] = await chrome.scripting.executeScript({
       target: { tabId: tab.id },
-      func: () => window.JobTrackerScraper.scrapeCurrentPage()
+      func: () => window.JobTrackerScraper.scrapeCurrentPageWithRetry()
     });
 
     if (!result || !result.result) {

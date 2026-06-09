@@ -12,7 +12,12 @@ from apscheduler.triggers.interval import IntervalTrigger
 from .config import Config, load_config
 from .gmail_client import build_gmail_service, fetch_message, list_candidate_message_ids
 from .ghosting import mark_ghosted_applications
-from .ingest import IngestResult, ingest_message, preview_message
+from .ingest import (
+    IngestResult,
+    backfill_application_posting_enrichment,
+    ingest_message,
+    preview_message,
+)
 from .supabase_client import get_supabase_client
 
 
@@ -69,6 +74,11 @@ def poll_once(
         except Exception:
             had_failures = True
             logger.exception("message processing failed for %s", message_id)
+
+    if not dry_run:
+        filled_count = backfill_application_posting_enrichment(resolved_supabase)
+        if filled_count:
+            logger.info("backfilled posting data on %s applications", filled_count)
 
     if not dry_run and not had_failures:
         _update_last_poll_at(resolved_supabase, poll_started_at)

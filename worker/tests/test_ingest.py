@@ -571,3 +571,69 @@ def test_posting_enrichment_does_nothing_without_role_match(monkeypatch) -> None
     assert application["salary"] is None
     assert application["location"] is None
     assert application["tags"] == []
+
+
+def test_posting_backfill_fills_missing_salary_location_and_tags() -> None:
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0].update(
+        {
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Analyst",
+            "salary": None,
+            "location": None,
+            "tags": [],
+        }
+    )
+    supabase.tables["job_postings"].append(
+        {
+            "id": "posting-1",
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Senior Analyst",
+            "salary": "$120k to $150k",
+            "location": "Remote US",
+            "tags": ["Remote", "Full-time"],
+            "seen_at": "2026-06-01T00:00:00+00:00",
+        }
+    )
+
+    updated_count = ingest.backfill_application_posting_enrichment(supabase)
+
+    assert updated_count == 1
+    application = supabase.tables["applications"][0]
+    assert application["salary"] == "$120k to $150k"
+    assert application["location"] == "Remote US"
+    assert application["tags"] == ["Remote", "Full-time"]
+
+
+def test_posting_backfill_does_nothing_without_match() -> None:
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0].update(
+        {
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Analyst",
+            "salary": None,
+            "location": None,
+        }
+    )
+    supabase.tables["job_postings"].append(
+        {
+            "id": "posting-1",
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Designer",
+            "salary": "$120k to $150k",
+            "location": "Remote US",
+            "tags": ["Remote"],
+            "seen_at": "2026-06-01T00:00:00+00:00",
+        }
+    )
+
+    updated_count = ingest.backfill_application_posting_enrichment(supabase)
+
+    assert updated_count == 0
+    application = supabase.tables["applications"][0]
+    assert application["salary"] is None
+    assert application["location"] is None

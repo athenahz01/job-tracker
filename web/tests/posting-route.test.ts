@@ -77,6 +77,28 @@ describe("posting route", () => {
     ]);
   });
 
+  it("stores a posting with location and no salary", async () => {
+    const response = await postPosting(
+      {
+        url: "https://jobs.example.com/acme/backend-engineer",
+        company: "Acme",
+        role: "Backend Engineer",
+        location: "Remote US"
+      },
+      "test-secret"
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ ok: true, ignored: false });
+    expect(mockSupabase.state.upserts[0].value).toEqual(
+      expect.objectContaining({
+        salary: null,
+        location: "Remote US"
+      })
+    );
+  });
+
   it("rejects a bad secret", async () => {
     const response = await postPosting({ url: "https://jobs.example.com/acme" }, "bad-secret");
     const body = await response.json();

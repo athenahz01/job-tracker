@@ -17,7 +17,10 @@
       return;
     }
 
-    const capture = global.JobTrackerScraper.scrapeCurrentPage();
+    const capture = await global.JobTrackerScraper.scrapeCurrentPageWithRetry({
+      timeoutMs: 3000,
+      intervalMs: 250
+    });
     if (!isConfidentPosting(capture, document.body ? document.body.innerText : "")) {
       return;
     }
@@ -36,18 +39,9 @@
     lastSentKey = key;
 
     try {
-      const settings = await shared.getSettings();
-      if (!shared.settingsAreReady(settings)) {
-        return;
-      }
-
-      await fetch(`${settings.apiBaseUrl}/api/posting`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-extension-api-secret": settings.apiSecret
-        },
-        body: JSON.stringify(payload)
+      await chrome.runtime.sendMessage({
+        type: "CACHE_POSTING",
+        posting: payload
       });
     } catch {
       // Posting enrichment is best effort and should never interrupt browsing.
@@ -81,8 +75,9 @@
       capture.url &&
         capture.company &&
         capture.role &&
+        capture.location &&
         !isConfirmationText(capture.role) &&
-        (capture.salary || capture.location)
+        !isConfirmationText(capture.location)
     );
   }
 

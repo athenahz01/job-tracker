@@ -1,14 +1,19 @@
 importScripts("shared.js");
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (!message || !["SAVE_APPLICATION", "CHECK_FIT"].includes(message.type)) {
+  if (
+    !message ||
+    !["SAVE_APPLICATION", "CHECK_FIT", "CACHE_POSTING"].includes(message.type)
+  ) {
     return false;
   }
 
   const action =
     message.type === "CHECK_FIT"
       ? checkFit(message.capture)
-      : saveApplication(message.capture, message.source, Boolean(message.auto), message.stage);
+      : message.type === "CACHE_POSTING"
+        ? cachePosting(message.posting)
+        : saveApplication(message.capture, message.source, Boolean(message.auto), message.stage);
 
   action
     .then(sendResponse)
@@ -24,6 +29,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
+
+async function cachePosting(posting) {
+  const shared = self.JobTrackerShared;
+  const settings = await shared.getSettings();
+  if (!shared.settingsAreReady(settings)) {
+    return { ok: false, reason: "settings" };
+  }
+
+  const body = {
+    url: shared.cleanJobUrl(posting && posting.url) || null,
+    company: shared.trimText(posting && posting.company, 180) || null,
+    role: shared.trimText(posting && posting.role, 220) || null,
+    salary: shared.trimText(posting && posting.salary, 160) || null,
+    location: shared.trimText(posting && posting.location, 180) || null,
+    tags: shared.parseTags(posting && posting.tags)
+  };
+
+  try {
+    const response = await fetch(`${settings.apiBaseUrl}/api/posting`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-extension-api-secret": settings.apiSecret
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await safeJson(response);
+    return response.ok ? { ok: true, data } : { ok: false, status: response.status, data };
+  } catch {
+    return { ok: false, reason: "network" };
+  }
+}
 
 async function checkFit(capture) {
   const shared = self.JobTrackerShared;

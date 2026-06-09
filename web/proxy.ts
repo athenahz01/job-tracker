@@ -12,7 +12,9 @@ export async function proxy(request: NextRequest) {
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/api/applications") ||
-    pathname.startsWith("/api/health")
+    pathname.startsWith("/api/health") ||
+    pathname.startsWith("/api/posting") ||
+    pathname.startsWith("/api/score")
   ) {
     return NextResponse.next();
   }

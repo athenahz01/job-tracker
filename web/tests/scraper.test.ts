@@ -20,6 +20,7 @@ describe("extension scraper", () => {
           <section data-testid="location">Remote US</section>
           <section data-testid="salary">Compensation: $120,000 - $150,000 per year</section>
           <p>Employment Type: Full-time</p>
+          <p>Location Type: Remote</p>
           <article class="posting">Build analytics dashboards for product teams.</article>
         </main>
       `
@@ -46,7 +47,10 @@ describe("extension scraper", () => {
             <p>New York, NY Hybrid</p>
             <p>Pay Range</p>
             <p>$70 - $90 per hour</p>
-            <p>Contract role</p>
+            <p>Employment Type</p>
+            <p>Contract</p>
+            <p>Location Type</p>
+            <p>Hybrid</p>
           </div>
         </main>
       `
@@ -74,6 +78,27 @@ describe("extension scraper", () => {
     });
 
     expect(scrape.location).toBe("New York, New York");
+  });
+
+  it("derives tags only from labeled employment and workplace fields", () => {
+    const scrape = runScraper({
+      hostname: "jobs.lever.co",
+      href: "https://jobs.lever.co/acme/101",
+      pathname: "/acme/101",
+      title: "Data Scientist - Acme",
+      markup: `
+        <main>
+          <div class="posting-headline"><h2>Data Scientist</h2></div>
+          <div data-testid="company-name">Acme</div>
+          <section data-testid="location">Austin, TX</section>
+          <p>Employment Type: Full-time</p>
+          <p>Location Type: Hybrid</p>
+          <p>We are not hiring a part-time contractor for this remote newsletter team.</p>
+        </main>
+      `
+    });
+
+    expect(scrape.tags).toEqual(["Full-time", "Hybrid"]);
   });
 
   it("discards a confirmation heading instead of using it as the role", () => {
@@ -129,7 +154,7 @@ describe("extension scraper", () => {
       company: "Acme",
       role: "Backend Engineer",
       salary: "$120,000 - $150,000 per year",
-      location: "",
+      location: "Remote US",
       confirmation: false,
       genericSubmitted: false
     };
@@ -139,11 +164,55 @@ describe("extension scraper", () => {
     ).toBe(false);
     expect(
       helpers.isConfidentPosting(
-        { ...confidentPosting, salary: "", location: "" },
+        { ...confidentPosting, salary: "$120,000 - $150,000 per year", location: "" },
         "Backend Engineer at Acme"
       )
     ).toBe(false);
-    expect(helpers.isConfidentPosting(confidentPosting, "Backend Engineer at Acme")).toBe(true);
+    expect(
+      helpers.isConfidentPosting(
+        { ...confidentPosting, salary: "" },
+        "Backend Engineer at Acme"
+      )
+    ).toBe(true);
+  });
+
+  it("scrape-with-retry waits for late company and role fields", async () => {
+    const scrape = await runScraperWithRetry(
+      {
+        hostname: "jobs.ashbyhq.com",
+        href: "https://jobs.ashbyhq.com/acme/backend-engineer",
+        pathname: "/acme/backend-engineer",
+        title: "",
+        markup: "<main><p>Loading...</p></main>"
+      },
+      `
+        <main>
+          <h1>Backend Engineer</h1>
+          <div data-testid="company-name">Acme</div>
+        </main>
+      `,
+      { timeoutMs: 40, intervalMs: 1 }
+    );
+
+    expect(scrape.company).toBe("Acme");
+    expect(scrape.role).toBe("Backend Engineer");
+  });
+
+  it("scrape-with-retry gives up cleanly when fields never appear", async () => {
+    const scrape = await runScraperWithRetry(
+      {
+        hostname: "jobs.ashbyhq.com",
+        href: "https://jobs.ashbyhq.com/acme/loading",
+        pathname: "/acme/loading",
+        title: "",
+        markup: "<main><p>Loading...</p></main>"
+      },
+      null,
+      { timeoutMs: 5, intervalMs: 1 }
+    );
+
+    expect(scrape.company).toBe("Acme");
+    expect(scrape.role).toBe("");
   });
 });
 
@@ -216,6 +285,64 @@ function runPostingCapture(input: {
   new Script(postingCaptureSource).runInContext(context);
 
   return context.JobTrackerPostingCapture;
+}
+
+async function runScraperWithRetry(
+  input: {
+    hostname: string;
+    href: string;
+    pathname: string;
+    title: string;
+    markup: string;
+  },
+  nextMarkup: string | null,
+  options: { timeoutMs: number; intervalMs: number }
+) {
+  let currentDocument = createDocument(input.markup, input.title);
+  let swapped = false;
+  const documentProxy = {
+    get body() {
+      return currentDocument.body;
+    },
+    get title() {
+      return currentDocument.title;
+    },
+    querySelector: (selector: string) => currentDocument.querySelector(selector),
+    querySelectorAll: (selector: string) => currentDocument.querySelectorAll(selector)
+  };
+  const context = createContext({
+    chrome: {
+      storage: {
+        local: {
+          get: () => undefined,
+          set: () => undefined
+        }
+      }
+    },
+    document: documentProxy,
+    globalThis: null,
+    location: {
+      hostname: input.hostname,
+      href: input.href,
+      pathname: input.pathname,
+      search: ""
+    },
+    setTimeout: (callback: () => void, ms: number) => {
+      if (nextMarkup && !swapped) {
+        swapped = true;
+        currentDocument = createDocument(nextMarkup, input.title);
+      }
+      return setTimeout(callback, ms);
+    },
+    URL,
+    URLSearchParams
+  });
+  context.globalThis = context;
+
+  new Script(sharedSource).runInContext(context);
+  new Script(scraperSource).runInContext(context);
+
+  return context.JobTrackerScraper.scrapeCurrentPageWithRetry(options);
 }
 
 function createDocument(markup: string, title: string) {

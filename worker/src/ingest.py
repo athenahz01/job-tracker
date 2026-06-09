@@ -392,6 +392,42 @@ def _match_recruiter_outreach(
     return None
 
 
+def backfill_application_posting_enrichment(supabase: Any) -> int:
+    try:
+        return _backfill_application_posting_enrichment_inner(supabase)
+    except Exception:
+        logger.exception("posting enrichment backfill failed")
+        return 0
+
+
+def _backfill_application_posting_enrichment_inner(supabase: Any) -> int:
+    updated_count = 0
+    for application in _load_candidate_applications(supabase, "application"):
+        if _as_string(application.get("salary")) and _as_string(application.get("location")):
+            continue
+
+        updates = _posting_enrichment_updates(
+            supabase,
+            application,
+            lookup_company=_as_string(application.get("company")),
+            lookup_role=_as_string(application.get("role")),
+        )
+        if not updates:
+            continue
+
+        application_id = str(application.get("id") or "")
+        if not application_id:
+            continue
+
+        _execute(
+            supabase.table("applications").update(updates).eq("id", application_id),
+            "backfill application posting enrichment",
+        )
+        updated_count += 1
+
+    return updated_count
+
+
 def _apply_matched_application(
     supabase: Any,
     event: Mapping[str, Any],

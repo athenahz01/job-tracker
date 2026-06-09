@@ -10,7 +10,7 @@
     const description = findDescription();
     const salary = findSalary(bodyText);
     const jobLocation = findLocation(bodyText);
-    const tags = deriveTags(bodyText, jobLocation);
+    const tags = deriveTags(bodyText);
     const confirmation = Boolean(ats && hasConfirmationSignal(bodyText, ats));
     const genericSubmitted = Boolean(!ats && hasConfirmationSignal(bodyText, "generic"));
 
@@ -26,6 +26,20 @@
       confirmation,
       genericSubmitted
     };
+  }
+
+  async function scrapeCurrentPageWithRetry(options) {
+    const timeoutMs = Number(options && options.timeoutMs) || 3000;
+    const intervalMs = Number(options && options.intervalMs) || 250;
+    const startedAt = Date.now();
+    let capture = scrapeCurrentPage();
+
+    while ((!capture.company || !capture.role) && Date.now() - startedAt < timeoutMs) {
+      await delay(intervalMs);
+      capture = scrapeCurrentPage();
+    }
+
+    return capture;
   }
 
   function detectAts() {
@@ -353,7 +367,13 @@
     for (let index = 0; index < lines.length; index += 1) {
       const line = lines[index];
       const lower = line.toLowerCase();
-      const label = labels.find((item) => lower === item || lower.startsWith(`${item}:`));
+      const label = labels.find(
+        (item) =>
+          lower === item ||
+          lower.startsWith(`${item}:`) ||
+          lower.startsWith(`${item} `) ||
+          lower.startsWith(`${item} -`)
+      );
       if (!label) {
         continue;
       }
@@ -382,29 +402,48 @@
     return match ? shared.trimText(match[0], 160) : "";
   }
 
-  function deriveTags(bodyText, jobLocation) {
-    const normalized = shared.trimText(`${bodyText} ${jobLocation}`, 25000).toLowerCase();
+  function deriveTags(bodyText) {
     const tags = [];
+    const employment = employmentTypeTag(
+      labelValue(
+        bodyText,
+        ["employment type", "job type", "position type", "time type"],
+        80
+      )
+    );
+    const workplace = workplaceTypeTag(
+      labelValue(
+        bodyText,
+        ["location type", "workplace type", "work type", "work model", "work setting"],
+        80
+      )
+    );
 
-    addTag(tags, workplaceTag(normalized));
+    addTag(tags, employment);
+    addTag(tags, workplace);
 
-    if (/\bfull[-\s]?time\b/.test(normalized)) {
-      addTag(tags, "Full-time");
-    }
-    if (/\bpart[-\s]?time\b/.test(normalized)) {
-      addTag(tags, "Part-time");
-    }
-    if (/\b(contract|contractor)\b/.test(normalized)) {
-      addTag(tags, "Contract");
-    }
-    if (/\b(internship|intern)\b/.test(normalized)) {
-      addTag(tags, "Internship");
-    }
-
-    return tags.slice(0, 4);
+    return tags;
   }
 
-  function workplaceTag(text) {
+  function employmentTypeTag(value) {
+    const text = shared.trimText(value, 80).toLowerCase();
+    if (/\bfull[-\s]?time\b/.test(text)) {
+      return "Full-time";
+    }
+    if (/\bpart[-\s]?time\b/.test(text)) {
+      return "Part-time";
+    }
+    if (/\b(contract|contractor)\b/.test(text)) {
+      return "Contract";
+    }
+    if (/\b(internship|intern)\b/.test(text)) {
+      return "Internship";
+    }
+    return "";
+  }
+
+  function workplaceTypeTag(value) {
+    const text = shared.trimText(value, 80).toLowerCase();
     if (/\bremote\b/.test(text)) {
       return "Remote";
     }
@@ -576,7 +615,12 @@
       .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   global.JobTrackerScraper = {
-    scrapeCurrentPage
+    scrapeCurrentPage,
+    scrapeCurrentPageWithRetry
   };
 })(globalThis);
