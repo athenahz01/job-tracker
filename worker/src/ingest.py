@@ -62,6 +62,12 @@ def ingest_message(message: Mapping[str, Any], config: Config, supabase: Any) ->
             return IngestResult(gmail_message_id=gmail_message_id, action="duplicate")
 
         classification = classify_email(message, config)
+        if classification is None:
+            return IngestResult(
+                gmail_message_id=gmail_message_id,
+                action="failed",
+                error="classification_failed",
+            )
         category = str(classification.get("category") or "other")
 
         if category not in WRITTEN_CATEGORIES:
@@ -124,6 +130,12 @@ def preview_message(message: Mapping[str, Any], config: Config, supabase: Any) -
             return IngestResult(gmail_message_id=gmail_message_id, action="duplicate")
 
         classification = classify_email(message, config)
+        if classification is None:
+            return IngestResult(
+                gmail_message_id=gmail_message_id,
+                action="failed",
+                error="classification_failed",
+            )
         category = str(classification.get("category") or "other")
         confidence = float(classification.get("confidence") or 0.0)
 

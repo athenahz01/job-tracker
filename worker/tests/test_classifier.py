@@ -21,6 +21,16 @@ class FakeAnthropicClient:
         self.messages = FakeMessages(responses)
 
 
+class FailingMessages:
+    def create(self, **_: object) -> SimpleNamespace:
+        raise RuntimeError("out of credit")
+
+
+class FailingAnthropicClient:
+    def __init__(self) -> None:
+        self.messages = FailingMessages()
+
+
 def patch_anthropic(monkeypatch, responses: list[str]) -> None:
     client = FakeAnthropicClient(responses)
     monkeypatch.setattr(classifier, "Anthropic", lambda api_key: client)
@@ -87,6 +97,17 @@ def test_malformed_response_is_safe(monkeypatch) -> None:
     assert result["category"] == "other"
     assert result["stage"] is None
     assert result["confidence"] == 0.0
+
+
+def test_call_failure_signals_retry(monkeypatch) -> None:
+    monkeypatch.setattr(classifier, "Anthropic", lambda api_key: FailingAnthropicClient())
+
+    result = classifier.classify_email(
+        {"subject": "Interview", "from_address": "jobs@acme.com", "body": "Meet us"},
+        make_config(),
+    )
+
+    assert result is None
 
 
 def test_prompt_guides_body_role_extraction(monkeypatch) -> None:

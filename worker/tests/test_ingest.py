@@ -17,6 +17,13 @@ class FakeSupabase:
         self.tables: dict[str, list[dict[str, Any]]] = {
             "email_events": [],
             "job_postings": [],
+            "sync_state": [
+                {
+                    "id": 1,
+                    "last_poll_at": "2026-01-01T00:00:00+00:00",
+                    "updated_at": "2026-01-01T00:00:00+00:00",
+                }
+            ],
             "applications": [
                 {
                     "id": "app-1",
@@ -165,10 +172,16 @@ def base_message(**overrides: Any) -> dict[str, Any]:
     return message
 
 
-def patch_classifier(monkeypatch, results: list[dict[str, Any]]) -> dict[str, int]:
+def patch_classifier(
+    monkeypatch,
+    results: list[dict[str, Any] | None],
+) -> dict[str, int]:
     state = {"calls": 0}
 
-    def fake_classify_email(message: dict[str, Any], config: object) -> dict[str, Any]:
+    def fake_classify_email(
+        message: dict[str, Any],
+        config: object,
+    ) -> dict[str, Any] | None:
         index = min(state["calls"], len(results) - 1)
         state["calls"] += 1
         return results[index]
@@ -304,6 +317,171 @@ def test_ingest_dedupes_before_classification_and_never_regresses(monkeypatch) -
     assert supabase.tables["email_events"][0]["application_id"] == "app-1"
     assert supabase.tables["email_events"][0]["advanced_stage"] is True
     assert supabase.tables["applications"][0]["stage"] == "Interview"
+
+
+def test_different_roles_at_same_company_create_separate_applications(monkeypatch) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "EliseAI",
+                "role": "AI Product Manager",
+                "stage": "Applied",
+                "confidence": 0.95,
+                "summary": "Application received",
+            },
+            {
+                "category": "application_event",
+                "company": "EliseAI",
+                "role": "Customer Success Manager",
+                "stage": "Applied",
+                "confidence": 0.95,
+                "summary": "Application received",
+            },
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"] = []
+
+    first = ingest.ingest_message(
+        base_message(
+            gmail_message_id="elise-1",
+            from_address="Careers <careers@eliseai.com>",
+        ),
+        make_config(),
+        supabase,
+    )
+    second = ingest.ingest_message(
+        base_message(
+            gmail_message_id="elise-2",
+            from_address="Careers <careers@eliseai.com>",
+        ),
+        make_config(),
+        supabase,
+    )
+
+    assert first.action == "application_event_create_orphan"
+    assert second.action == "application_event_create_orphan"
+    application_rows = [
+        row for row in supabase.tables["applications"] if row["kind"] == "application"
+    ]
+    assert len(application_rows) == 2
+    assert {row["role"] for row in application_rows} == {
+        "AI Product Manager",
+        "Customer Success Manager",
+    }
+
+
+def test_lifecycle_email_matches_existing_role_and_advances(monkeypatch) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "EliseAI",
+                "role": "Product Manager",
+                "stage": "Interview",
+                "confidence": 0.95,
+                "summary": "Interview invite",
+            }
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0].update(
+        {
+            "company": "EliseAI",
+            "normalized_company": "eliseai",
+            "company_domain": "eliseai.com",
+            "role": "Senior Product Manager",
+            "stage": "Applied",
+        }
+    )
+
+    result = ingest.ingest_message(
+        base_message(from_address="Careers <careers@eliseai.com>"),
+        make_config(),
+        supabase,
+    )
+
+    assert result.action == "application_event_matched"
+    assert result.matched_application_id == "app-1"
+    assert result.advanced_stage is True
+    assert len(supabase.tables["applications"]) == 1
+    assert supabase.tables["applications"][0]["stage"] == "Interview"
+
+
+def test_bare_role_email_falls_back_to_most_recent_company_match(monkeypatch) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "EliseAI",
+                "role": None,
+                "stage": "Assessment",
+                "confidence": 0.95,
+                "summary": "Assessment invite",
+            }
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"] = [
+        {
+            "id": "app-1",
+            "company": "EliseAI",
+            "normalized_company": "eliseai",
+            "company_domain": None,
+            "kind": "application",
+            "stage": "Applied",
+            "stage_locked": False,
+            "role": "Data Scientist",
+            "salary": None,
+            "location": None,
+            "tags": [],
+            "last_activity": "2026-01-01T00:00:00+00:00",
+            "merged_into_id": None,
+        },
+        {
+            "id": "app-2",
+            "company": "EliseAI",
+            "normalized_company": "eliseai",
+            "company_domain": None,
+            "kind": "application",
+            "stage": "Applied",
+            "stage_locked": False,
+            "role": "Product Manager",
+            "salary": None,
+            "location": None,
+            "tags": [],
+            "last_activity": "2026-02-01T00:00:00+00:00",
+            "merged_into_id": None,
+        },
+    ]
+
+    result = ingest.ingest_message(
+        base_message(from_address="Greenhouse <notifications@greenhouse.io>"),
+        make_config(),
+        supabase,
+    )
+
+    assert result.action == "application_event_matched"
+    assert result.matched_application_id == "app-2"
+    assert len(supabase.tables["applications"]) == 2
+    assert supabase.tables["applications"][0]["stage"] == "Applied"
+    assert supabase.tables["applications"][1]["stage"] == "Assessment"
+
+
+def test_classification_failure_does_not_write_event(monkeypatch) -> None:
+    patch_classifier(monkeypatch, [None])
+    supabase = FakeSupabase()
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "failed"
+    assert result.error == "classification_failed"
+    assert supabase.tables["email_events"] == []
+    assert len(supabase.tables["applications"]) == 1
 
 
 def test_match_backfills_placeholder_role_and_company(monkeypatch) -> None:

@@ -45,28 +45,39 @@ CATEGORIES = {"application_event", "recruiter_outreach", "job_alert", "other"}
 ESCALATION_CATEGORIES = {"application_event", "recruiter_outreach"}
 
 
-def classify_email(email: Mapping[str, Any], config: Config) -> dict[str, Any]:
+class ClassificationCallFailed(RuntimeError):
+    """Raised when the model call itself fails and the email should be retried."""
+
+
+def classify_email(email: Mapping[str, Any], config: Config) -> dict[str, Any] | None:
     """Classify one email into job tracking fields."""
-    result = _classify_with_model(config.anthropic_model_primary, email, config)
-    if result is None:
-        return _safe_result()
-
-    if (
-        result["category"] in ESCALATION_CATEGORIES
-        and result["confidence"] < config.escalate_confidence_threshold
-    ):
-        result = _classify_with_model(config.anthropic_model_escalation, email, config)
+    try:
+        result = _classify_with_model(config.anthropic_model_primary, email, config)
         if result is None:
             return _safe_result()
 
-    if (
-        config.use_hard_model
-        and result["category"] in ESCALATION_CATEGORIES
-        and result["confidence"] < config.escalate_confidence_threshold
-    ):
-        result = _classify_with_model(config.anthropic_model_hard, email, config)
-        if result is None:
-            return _safe_result()
+        if (
+            result["category"] in ESCALATION_CATEGORIES
+            and result["confidence"] < config.escalate_confidence_threshold
+        ):
+            result = _classify_with_model(
+                config.anthropic_model_escalation,
+                email,
+                config,
+            )
+            if result is None:
+                return _safe_result()
+
+        if (
+            config.use_hard_model
+            and result["category"] in ESCALATION_CATEGORIES
+            and result["confidence"] < config.escalate_confidence_threshold
+        ):
+            result = _classify_with_model(config.anthropic_model_hard, email, config)
+            if result is None:
+                return _safe_result()
+    except ClassificationCallFailed:
+        return None
 
     return result
 
@@ -104,9 +115,9 @@ def _classify_with_model(
                 }
             ],
         )
-    except Exception:
+    except Exception as error:
         logger.exception("Anthropic classification call failed with model %s", model)
-        return None
+        raise ClassificationCallFailed(model) from error
 
     raw_text = _response_text(response)
     parsed = parse_classification_response(raw_text)
