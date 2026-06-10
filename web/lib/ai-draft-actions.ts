@@ -1,6 +1,10 @@
 "use server";
 
-import { requestClaudeText } from "./anthropic";
+import {
+  draftScreenerAnswerWithClaude,
+  requestClaudeText,
+  type ScreenerAnswerProfile
+} from "./anthropic";
 import {
   buildColdOutreachPrompt,
   buildContactOutreachPrompt,
@@ -146,6 +150,54 @@ export async function draftNetworkingMessageAction(
   );
 }
 
+export async function draftInterviewPracticeAnswerAction(
+  _state: DraftActionState,
+  formData: FormData
+): Promise<DraftActionState> {
+  await requireDashboardAccess();
+
+  const question = cleanQuestion(readString(formData.get("question")));
+  if (!question) {
+    return draftError("Choose an interview question first.");
+  }
+
+  const application = await loadApplication(readString(formData.get("applicationId")));
+  if (!application) {
+    return draftError("Could not load that application.");
+  }
+
+  const profile = await loadProfileForDraft();
+  const resumeText = cleanLongText(profile?.resume_text ?? null, 200000);
+  if (!resumeText) {
+    return draftError("Save a master resume in Profile first.");
+  }
+
+  try {
+    const text = await draftScreenerAnswerWithClaude({
+      question: [
+        "Interview practice question:",
+        question,
+        "",
+        "Draft a strong first-person interview answer. Keep it honest, conversational, and grounded only in the resume and profile."
+      ].join("\n"),
+      company: application.company,
+      role: application.role,
+      jobDescription: application.notes,
+      resumeText,
+      profile: toScreenerProfile(profile)
+    });
+
+    return {
+      ok: true,
+      text: cleanDraft(text),
+      error: null
+    };
+  } catch {
+    console.error("Could not generate interview practice answer.");
+    return draftError("Could not generate a practice answer right now.");
+  }
+}
+
 async function generateDraft(prompt: string): Promise<DraftActionState> {
   try {
     const text = await requestClaudeText({
@@ -207,6 +259,24 @@ async function loadContact(contactId: string) {
   return (data as ContactRow | null) ?? null;
 }
 
+async function loadProfileForDraft() {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("profile")
+    .select(
+      "resume_text, full_name, email, phone, location, linkedin_url, github_url, portfolio_url, website_url, work_authorization, requires_sponsorship, years_experience, current_title"
+    )
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Could not load profile for interview practice.");
+    return null;
+  }
+
+  return (data as (ScreenerAnswerProfile & { resume_text: string | null }) | null) ?? null;
+}
+
 function draftError(error: string): DraftActionState {
   return {
     ok: false,
@@ -217,6 +287,40 @@ function draftError(error: string): DraftActionState {
 
 function cleanDraft(value: string) {
   return value.trim().slice(0, 3000);
+}
+
+function cleanQuestion(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, 800);
+}
+
+function cleanLongText(value: string | null, maxLength: number) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const text = value.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  return text ? text.slice(0, maxLength) : null;
+}
+
+function toScreenerProfile(
+  profile: (ScreenerAnswerProfile & { resume_text: string | null }) | null
+): ScreenerAnswerProfile | null {
+  if (!profile) {
+    return null;
+  }
+  return {
+    full_name: profile.full_name ?? null,
+    email: profile.email ?? null,
+    phone: profile.phone ?? null,
+    location: profile.location ?? null,
+    linkedin_url: profile.linkedin_url ?? null,
+    github_url: profile.github_url ?? null,
+    portfolio_url: profile.portfolio_url ?? null,
+    website_url: profile.website_url ?? null,
+    work_authorization: profile.work_authorization ?? null,
+    requires_sponsorship: profile.requires_sponsorship ?? null,
+    years_experience: profile.years_experience ?? null,
+    current_title: profile.current_title ?? null
+  };
 }
 
 function readString(value: FormDataEntryValue | null) {

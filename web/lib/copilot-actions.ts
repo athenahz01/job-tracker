@@ -32,23 +32,32 @@ export async function askPipelineAssistantAction(
 
   try {
     const supabase = createSupabaseServerClient();
-    const [applicationsResponse, contactsResponse] = await Promise.all([
+    const [applicationsResponse, contactsResponse, profileResponse] = await Promise.all([
       supabase
         .from("applications")
         .select("*")
         .eq("kind", "application")
         .is("merged_into_id", null),
-      supabase.from("contacts").select("*")
+      supabase.from("contacts").select("*"),
+      supabase
+        .from("profile")
+        .select("resume_text")
+        .eq("id", 1)
+        .maybeSingle()
     ]);
 
-    if (applicationsResponse.error || contactsResponse.error) {
+    if (applicationsResponse.error || contactsResponse.error || profileResponse.error) {
       throw new Error("Could not load tracker context.");
     }
 
     const context = buildPipelineCopilotContext({
       applications: (applicationsResponse.data ?? []) as ApplicationRow[],
       contacts: (contactsResponse.data ?? []) as ContactRow[],
-      today: new Date()
+      today: new Date(),
+      resumeText:
+        typeof profileResponse.data?.resume_text === "string"
+          ? profileResponse.data.resume_text
+          : null
     });
     const answer = await requestClaudeText({
       system: PIPELINE_COPILOT_SYSTEM_PROMPT,

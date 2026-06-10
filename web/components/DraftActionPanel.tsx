@@ -6,12 +6,18 @@ import {
   draftApplicationFollowUpAction,
   draftColdOutreachAction,
   draftContactOutreachAction,
+  draftInterviewPracticeAnswerAction,
   draftNetworkingMessageAction,
   type DraftActionState
 } from "../lib/ai-draft-actions";
 import type { NetworkingDraftVariant } from "../lib/draft-prompts";
 
-type DraftKind = "follow-up" | "contact-outreach" | "cold-outreach" | "networking";
+type DraftKind =
+  | "follow-up"
+  | "contact-outreach"
+  | "cold-outreach"
+  | "networking"
+  | "interview-practice";
 
 type DraftActionPanelProps = {
   kind: DraftKind;
@@ -20,6 +26,7 @@ type DraftActionPanelProps = {
   applicationId?: string;
   contactId?: string;
   variant?: NetworkingDraftVariant;
+  question?: string;
   compact?: boolean;
 };
 
@@ -36,6 +43,7 @@ export default function DraftActionPanel({
   applicationId,
   contactId,
   variant,
+  question,
   compact = false
 }: DraftActionPanelProps) {
   const [copied, setCopied] = useState(false);
@@ -56,6 +64,7 @@ export default function DraftActionPanel({
         {applicationId ? <input type="hidden" name="applicationId" value={applicationId} /> : null}
         {contactId ? <input type="hidden" name="contactId" value={contactId} /> : null}
         {variant ? <input type="hidden" name="variant" value={variant} /> : null}
+        {question ? <input type="hidden" name="question" value={question} /> : null}
         <div>
           <strong>{label}</strong>
           {description ? <p className="muted">{description}</p> : null}
@@ -88,6 +97,9 @@ function actionForKind(kind: DraftKind) {
   }
   if (kind === "networking") {
     return draftNetworkingMessageAction;
+  }
+  if (kind === "interview-practice") {
+    return draftInterviewPracticeAnswerAction;
   }
   return draftColdOutreachAction;
 }

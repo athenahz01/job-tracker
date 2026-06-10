@@ -133,6 +133,8 @@ function application(overrides: Partial<ApplicationRow>): ApplicationRow {
     tailored_at: null,
     ai_tailored_resume: null,
     tailored_resume_at: null,
+    ai_interview_prep: null,
+    interview_prep_at: null,
     first_seen: "2026-01-01T00:00:00.000Z",
     last_activity: "2026-01-01T00:00:00.000Z",
     created_at: "2026-01-01T00:00:00.000Z",

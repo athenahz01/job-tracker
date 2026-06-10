@@ -4,6 +4,10 @@ import { getFurthestActiveStage } from "./application-stages";
 import { buildFollowUpItems } from "./followups";
 import { buildInsightsData, type InsightsData } from "./insights-calc";
 import {
+  normalizeInterviewPrep,
+  type InterviewPrep
+} from "./interview-prep-shape";
+import {
   buildWarmPathMatches,
   isOutreachStage,
   type OutreachStage,
@@ -55,6 +59,8 @@ export type ApplicationRow = {
   tailored_at: string | null;
   ai_tailored_resume: string | null;
   tailored_resume_at: string | null;
+  ai_interview_prep: InterviewPrep | null;
+  interview_prep_at: string | null;
   first_seen: string;
   last_activity: string;
   created_at: string;
@@ -603,7 +609,9 @@ function normalizeApplications(rows: unknown): ApplicationRow[] {
     tailored_at: row.tailored_at ?? null,
     ai_tailored_resume:
       typeof row.ai_tailored_resume === "string" ? row.ai_tailored_resume : null,
-    tailored_resume_at: row.tailored_resume_at ?? null
+    tailored_resume_at: row.tailored_resume_at ?? null,
+    ai_interview_prep: normalizeInterviewPrep(row.ai_interview_prep),
+    interview_prep_at: row.interview_prep_at ?? null
   }));
 }
 

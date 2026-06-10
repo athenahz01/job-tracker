@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { normalizeCompanyName } from "./company";
 import { requireDashboardAccess } from "./dashboard-auth";
+import { generateApplicationInterviewPrep } from "./interview-prep";
 import { isOutreachStage } from "./networking";
 import {
   generateTailoredResumeVariant,
@@ -592,6 +593,16 @@ export async function generateTailoredResumeAction(formData: FormData) {
   const status = await generateTailoredResumeVariant(id);
 
   if (status === "tailored_resume_saved") {
+    revalidateApplicationViews(id);
+  }
+  redirectWithStatus(id, status);
+}
+
+export async function generateInterviewPrepAction(formData: FormData) {
+  const id = readString(formData.get("applicationId"));
+  const status = await generateApplicationInterviewPrep(id);
+
+  if (status === "interview_prep_saved") {
     revalidateApplicationViews(id);
   }
   redirectWithStatus(id, status);

@@ -6,7 +6,8 @@ const mockAnthropic = vi.hoisted(() => ({
   scoreFitWithClaude: vi.fn(),
   tailorApplicationWithClaude: vi.fn(),
   analyzeRequirementsWithClaude: vi.fn(),
-  tailorResumeVariantWithClaude: vi.fn()
+  tailorResumeVariantWithClaude: vi.fn(),
+  generateInterviewPrepWithClaude: vi.fn()
 }));
 
 const mockSupabase = vi.hoisted(() => {
@@ -21,7 +22,14 @@ const mockSupabase = vi.hoisted(() => {
       id: "00000000-0000-4000-8000-000000000001",
       company: "Acme",
       role: "Product Analyst",
-      notes: "React, SQL, dashboard analytics, stakeholder reporting"
+      notes: "React, SQL, dashboard analytics, stakeholder reporting",
+      requirement_matches: [
+        {
+          requirement: "React dashboards",
+          status: "partial",
+          evidence: "Resume has dashboards but not React."
+        }
+      ]
     },
     profile: {
       id: 1,
@@ -143,6 +151,7 @@ import {
   updateApplicationRoleAction
 } from "../lib/dashboard-actions";
 import { requireDashboardAccess } from "../lib/dashboard-auth";
+import { generateApplicationInterviewPrep } from "../lib/interview-prep";
 import {
   generateTailoredResumeVariant,
   saveProfileResume,
@@ -159,7 +168,14 @@ describe("dashboard actions", () => {
       id: applicationId,
       company: "Acme",
       role: "Product Analyst",
-      notes: "React, SQL, dashboard analytics, stakeholder reporting"
+      notes: "React, SQL, dashboard analytics, stakeholder reporting",
+      requirement_matches: [
+        {
+          requirement: "React dashboards",
+          status: "partial",
+          evidence: "Resume has dashboards but not React."
+        }
+      ]
     };
     mockSupabase.state.profile = {
       id: 1,
@@ -174,6 +190,7 @@ describe("dashboard actions", () => {
     mockAnthropic.tailorApplicationWithClaude.mockReset();
     mockAnthropic.analyzeRequirementsWithClaude.mockReset();
     mockAnthropic.tailorResumeVariantWithClaude.mockReset();
+    mockAnthropic.generateInterviewPrepWithClaude.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -410,6 +427,80 @@ describe("dashboard actions", () => {
     );
 
     expect(mockSupabase.state.updates).toEqual([]);
+  });
+
+  it("stores validated interview prep with questions, insights, and focus areas", async () => {
+    mockAnthropic.generateInterviewPrepWithClaude.mockResolvedValue({
+      likely_questions: [
+        {
+          question: "How would you use analytics to prioritize a product decision?",
+          category: "role-specific",
+          talking_points: [
+            "Use the SQL dashboard experience from the resume.",
+            "Mention stakeholder reporting from analytics workflows."
+          ]
+        },
+        {
+          question: "How would you use analytics to prioritize a product decision?",
+          category: "duplicate",
+          talking_points: ["Duplicate should be ignored."]
+        },
+        {
+          question: "Invalid item",
+          category: "technical",
+          talking_points: []
+        }
+      ],
+      company_insights: ["Posting emphasizes dashboard analytics."],
+      focus_areas: ["Prepare for the React dashboard gap."]
+    });
+
+    await expect(generateApplicationInterviewPrep(applicationId)).resolves.toBe(
+      "interview_prep_saved"
+    );
+
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          ai_interview_prep: {
+            likely_questions: [
+              {
+                question: "How would you use analytics to prioritize a product decision?",
+                category: "role-specific",
+                talking_points: [
+                  "Use the SQL dashboard experience from the resume.",
+                  "Mention stakeholder reporting from analytics workflows."
+                ]
+              }
+            ],
+            company_insights: ["Posting emphasizes dashboard analytics."],
+            focus_areas: ["Prepare for the React dashboard gap."]
+          },
+          interview_prep_at: expect.any(String)
+        })
+      }
+    ]);
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+  });
+
+  it("leaves interview prep unset for a malformed model response", async () => {
+    mockAnthropic.generateInterviewPrepWithClaude.mockResolvedValue({
+      likely_questions: [
+        {
+          question: "Missing talking points",
+          category: "technical",
+          talking_points: []
+        }
+      ]
+    });
+
+    await expect(generateApplicationInterviewPrep(applicationId)).resolves.toBe(
+      "interview_prep_error"
+    );
+
+    expect(mockSupabase.state.updates).toEqual([]);
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
   });
 
   it("upserts the single profile row for the resume", async () => {

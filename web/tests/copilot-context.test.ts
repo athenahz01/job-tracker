@@ -34,7 +34,8 @@ describe("copilot context", () => {
           relationship: "recruiter",
           next_follow_up: "2026-06-08"
         })
-      ]
+      ],
+      resumeText: "Built SQL dashboards and analytics workflows."
     });
 
     expect(context).toContain("Applied: 1");
@@ -44,6 +45,8 @@ describe("copilot context", () => {
     expect(context).toContain("Riley at Bravo");
     expect(context).toContain("Acme, Analyst: 84");
     expect(context).toContain("Bravo, Designer: 32");
+    expect(context).toContain("Interview prep references:");
+    expect(context).toContain("Built SQL dashboards");
   });
 });
 
@@ -82,6 +85,8 @@ function application(overrides: Partial<ApplicationRow>): ApplicationRow {
     tailored_at: null,
     ai_tailored_resume: null,
     tailored_resume_at: null,
+    ai_interview_prep: null,
+    interview_prep_at: null,
     first_seen: now,
     last_activity: now,
     created_at: now,

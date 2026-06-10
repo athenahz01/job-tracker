@@ -8,13 +8,15 @@ export type CopilotContextInput = {
   contacts: ContactRow[];
   today: Date;
   quietDays?: number;
+  resumeText?: string | null;
 };
 
 export function buildPipelineCopilotContext({
   applications,
   contacts,
   today,
-  quietDays = 14
+  quietDays = 14,
+  resumeText = null
 }: CopilotContextInput) {
   const applied = applications.filter((application) => application.stage !== "Saved");
   const counts = countByStage(applications);
@@ -44,6 +46,10 @@ export function buildPipelineCopilotContext({
       left.name.localeCompare(right.name)
     )
     .slice(0, 8);
+  const interviewContext = applications
+    .filter((application) => application.kind === "application")
+    .slice(0, 10)
+    .map((application) => interviewContextLine(application));
 
   return [
     `Today: ${todayKey}`,
@@ -92,7 +98,13 @@ export function buildPipelineCopilotContext({
         (application) =>
           `- ${application.company}${roleSuffix(application.role)}: ${application.fit_score}`
       )
-    )
+    ),
+    "",
+    "Interview prep references:",
+    ...listOrEmpty(interviewContext),
+    "",
+    "Resume context for interview prep:",
+    resumeText ? excerpt(resumeText, 1600) : "- No master resume saved."
   ].join("\n");
 }
 
@@ -110,6 +122,31 @@ function listOrEmpty(lines: string[]) {
 
 function roleSuffix(role: string | null) {
   return role ? `, ${role}` : "";
+}
+
+function interviewContextLine(application: ApplicationRow) {
+  const prepQuestions =
+    application.ai_interview_prep?.likely_questions
+      .slice(0, 3)
+      .map((question) => question.question)
+      .join(" | ") || "No saved prep questions";
+  const gaps = application.requirement_matches
+    .filter((match) => match.status !== "met")
+    .slice(0, 3)
+    .map((match) => match.requirement)
+    .join(", ");
+
+  return [
+    `- ${application.company}${roleSuffix(application.role)}: ${application.stage}`,
+    application.notes ? `Posting notes: ${excerpt(application.notes, 220)}` : "Posting notes: Not set",
+    gaps ? `Requirement gaps: ${gaps}` : "Requirement gaps: None saved",
+    `Prep questions: ${prepQuestions}`
+  ].join(". ");
+}
+
+function excerpt(value: string, maxLength: number) {
+  const text = value.replace(/\s+/g, " ").trim();
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
 }
 
 function daysBetween(from: string, to: string) {

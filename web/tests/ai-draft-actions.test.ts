@@ -4,7 +4,8 @@ const applicationId = "00000000-0000-4000-8000-000000000001";
 const contactId = "00000000-0000-4000-8000-000000000002";
 
 const mockAnthropic = vi.hoisted(() => ({
-  requestClaudeText: vi.fn()
+  requestClaudeText: vi.fn(),
+  draftScreenerAnswerWithClaude: vi.fn()
 }));
 
 const mockSupabase = vi.hoisted(() => {
@@ -34,6 +35,24 @@ const mockSupabase = vi.hoisted(() => {
         outreach_stage: "reached",
         notes: "Met at a product analytics event.",
         application_id: "00000000-0000-4000-8000-000000000001"
+      }
+    ],
+    profile: [
+      {
+        id: 1,
+        resume_text: "Built SQL dashboards and analytics workflows.",
+        full_name: "Ada Lovelace",
+        email: "ada@example.com",
+        phone: null,
+        location: "New York, NY",
+        linkedin_url: null,
+        github_url: null,
+        portfolio_url: null,
+        website_url: null,
+        work_authorization: "Authorized",
+        requires_sponsorship: false,
+        years_experience: "5",
+        current_title: "Product Analyst"
       }
     ]
   };
@@ -80,6 +99,9 @@ const mockSupabase = vi.hoisted(() => {
         if (table === "contacts") {
           return new Query(state.contacts);
         }
+        if (table === "profile") {
+          return new Query(state.profile);
+        }
         throw new Error(`Unexpected table ${table}.`);
       }
     })
@@ -101,13 +123,22 @@ vi.mock("server-only", () => ({}));
 import {
   draftApplicationFollowUpAction,
   draftContactOutreachAction,
+  draftInterviewPracticeAnswerAction,
   draftNetworkingMessageAction
 } from "../lib/ai-draft-actions";
+import { requireDashboardAccess } from "../lib/dashboard-auth";
+
+const mockedRequireDashboardAccess = vi.mocked(requireDashboardAccess);
 
 describe("AI draft actions", () => {
   beforeEach(() => {
     mockAnthropic.requestClaudeText.mockReset();
     mockAnthropic.requestClaudeText.mockResolvedValue("Hi Riley, just checking in.");
+    mockAnthropic.draftScreenerAnswerWithClaude.mockReset();
+    mockAnthropic.draftScreenerAnswerWithClaude.mockResolvedValue(
+      "I would start by clarifying the product goal, then use SQL dashboards to identify the highest-impact user segment."
+    );
+    mockedRequireDashboardAccess.mockClear();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -171,6 +202,32 @@ describe("AI draft actions", () => {
     expect(mockAnthropic.requestClaudeText).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("Target application: Acme, Product Analyst, Applied")
+      })
+    );
+  });
+
+  it("returns an interview practice answer using the profile resume", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("question", "How do you prioritize product analytics work?");
+
+    const result = await draftInterviewPracticeAnswerAction(
+      { ok: false, text: "", error: null },
+      formData
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      text: "I would start by clarifying the product goal, then use SQL dashboards to identify the highest-impact user segment.",
+      error: null
+    });
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockAnthropic.draftScreenerAnswerWithClaude).toHaveBeenCalledWith(
+      expect.objectContaining({
+        company: "Acme",
+        role: "Product Analyst",
+        resumeText: "Built SQL dashboards and analytics workflows.",
+        question: expect.stringContaining("How do you prioritize product analytics work?")
       })
     );
   });

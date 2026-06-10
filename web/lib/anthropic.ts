@@ -28,6 +28,14 @@ type FitPromptInput = {
 
 type ResumeIntelligenceInput = FitPromptInput;
 
+type InterviewPrepPromptInput = FitPromptInput & {
+  requirementMatches?: Array<{
+    requirement: string;
+    status: string;
+    evidence: string;
+  }> | null;
+};
+
 export type ScreenerAnswerProfile = {
   full_name: string | null;
   email: string | null;
@@ -78,6 +86,12 @@ export const REQUIREMENT_MATCHING_OUTPUT_SHAPE =
 export const TAILORED_RESUME_SYSTEM_PROMPT =
   "You tailor resumes only by rephrasing, reordering, and emphasizing content already present in the supplied resume. Never invent experience, skills, credentials, metrics, tools, or claims.";
 
+export const INTERVIEW_PREP_SYSTEM_PROMPT =
+  "You create interview prep from a job posting and resume. Return only strict JSON. Talking points must be grounded only in the resume. Company insights must be grounded in the posting or clearly labeled as uncertain.";
+
+export const INTERVIEW_PREP_OUTPUT_SHAPE =
+  '{"likely_questions":[{"question":"","category":"behavioral","talking_points":[]}],"company_insights":[],"focus_areas":[]}';
+
 export async function scoreFitWithClaude(input: FitPromptInput): Promise<unknown> {
   return requestClaudeJson({
     system: FIT_SCORING_SYSTEM_PROMPT,
@@ -123,6 +137,16 @@ export async function tailorResumeVariantWithClaude(
     prompt: buildTailoredResumePrompt(input),
     maxTokens: 5000,
     temperature: 0.2
+  });
+}
+
+export async function generateInterviewPrepWithClaude(
+  input: InterviewPrepPromptInput
+): Promise<unknown> {
+  return requestClaudeJson({
+    system: INTERVIEW_PREP_SYSTEM_PROMPT,
+    prompt: buildInterviewPrepPrompt(input),
+    maxTokens: 2600
   });
 }
 
@@ -232,6 +256,32 @@ export function buildTailoredResumePrompt(input: ResumeIntelligenceInput) {
   ].join("\n");
 }
 
+export function buildInterviewPrepPrompt(input: InterviewPrepPromptInput) {
+  return [
+    "Create interview prep for this application using the job posting, resume, and requirement analysis when available.",
+    "Return exactly one JSON object and nothing else.",
+    `The JSON shape must be exactly: ${INTERVIEW_PREP_OUTPUT_SHAPE}`,
+    "likely_questions must contain at most 10 items.",
+    "Each likely question must include question, category, and talking_points.",
+    "Categories should be concise, for example behavioral, role-specific, technical, product, or company.",
+    "talking_points must be short bullets grounded only in the resume. Do not invent experience, projects, metrics, skills, employers, or claims.",
+    "company_insights must be short notes about the company, role, or questions worth asking. Use only the posting and general role knowledge. If a company-specific fact is uncertain, say it is uncertain.",
+    "focus_areas must be short prep priorities informed by missing or partial requirements when available.",
+    "",
+    `Company: ${input.company}`,
+    `Role: ${input.role || "Not set"}`,
+    "",
+    "Requirement analysis:",
+    formatRequirementMatches(input.requirementMatches),
+    "",
+    "Job posting notes:",
+    input.jobDescription || "Not set",
+    "",
+    "Master resume:",
+    input.resumeText
+  ].join("\n");
+}
+
 function formatScreenerProfile(profile: ScreenerAnswerProfile | null) {
   if (!profile) {
     return "Not set";
@@ -255,6 +305,20 @@ function formatScreenerProfile(profile: ScreenerAnswerProfile | null) {
     `Portfolio: ${profile.portfolio_url || "Not set"}`,
     `Website: ${profile.website_url || "Not set"}`
   ].join("\n");
+}
+
+function formatRequirementMatches(
+  matches: InterviewPrepPromptInput["requirementMatches"]
+) {
+  if (!matches?.length) {
+    return "Not set";
+  }
+  return matches
+    .map(
+      (match) =>
+        `- ${match.status}: ${match.requirement} (${match.evidence})`
+    )
+    .join("\n");
 }
 
 async function requestClaudeJson({ system, prompt, maxTokens }: ClaudeJsonRequest) {

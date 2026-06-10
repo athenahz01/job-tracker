@@ -1232,6 +1232,61 @@ tr[tabindex]:focus-visible {
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
+.interview-prep-panel {
+  display: grid;
+}
+
+.interview-prep-stack,
+.interview-prep-block,
+.question-group,
+.question-list {
+  display: grid;
+  gap: 12px;
+}
+
+.interview-prep-block {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.interview-prep-block h3,
+.question-group h4 {
+  margin: 0;
+}
+
+.question-group h4 {
+  color: var(--accent-dark);
+  font-size: 15px;
+}
+
+.question-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.44fr);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.question-card strong {
+  display: block;
+  line-height: 1.35;
+}
+
+.question-card ul,
+.prep-list {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
+.question-card li,
+.prep-list li {
+  margin-top: 5px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .action-panel h2,
 .section-heading h2 {
   margin: 4px 0 0;
@@ -1730,7 +1785,8 @@ tr[tabindex]:focus-visible {
   .topbar-counts,
   .timeline-meta,
   .outreach-row,
-  .assistant-layout {
+  .assistant-layout,
+  .question-card {
     align-items: flex-start;
     grid-template-columns: 1fr;
   }

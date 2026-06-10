@@ -8,6 +8,7 @@ import FitScoreBadge from "../../../components/FitScoreBadge";
 import MergeForm from "../../../components/MergeForm";
 import {
   clearStageLockAction,
+  generateInterviewPrepAction,
   generateTailoredResumeAction,
   renameCompanyAction,
   setStageAction,
@@ -20,6 +21,7 @@ import {
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
 import { formatConfidence, formatDate, gmailUrl, timeAgo } from "../../../lib/format";
+import type { InterviewPrep, InterviewPrepQuestion } from "../../../lib/interview-prep-shape";
 import { outreachStageLabel, type WarmPathMatch } from "../../../lib/networking";
 import { buildResumeDiff, type ResumeDiffLine } from "../../../lib/resume-diff";
 import { priorityClass, stageClass } from "../../../lib/style-utils";
@@ -316,6 +318,14 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       ) : null}
 
       {!isRecruiterOutreach ? (
+        <InterviewPrepPanel
+          applicationId={application.id}
+          prep={application.ai_interview_prep}
+          generatedAt={application.interview_prep_at}
+        />
+      ) : null}
+
+      {!isRecruiterOutreach ? (
         <section className="action-panel tracker-editor">
           <div>
             <h2>Tracker Fields</h2>
@@ -576,6 +586,124 @@ function WhoCanHelpPanel({
   );
 }
 
+function InterviewPrepPanel({
+  applicationId,
+  prep,
+  generatedAt
+}: {
+  applicationId: string;
+  prep: InterviewPrep | null;
+  generatedAt: string | null;
+}) {
+  const grouped = groupInterviewQuestions(prep?.likely_questions ?? []);
+
+  return (
+    <section className="action-panel interview-prep-panel" aria-labelledby="interview-prep-heading">
+      <div className="section-heading ai-heading">
+        <div>
+          <p className="eyebrow">Interview</p>
+          <h2 id="interview-prep-heading">Interview Prep</h2>
+          <p className="muted">Role-specific prep grounded in your resume and the posting.</p>
+        </div>
+        <form action={generateInterviewPrepAction}>
+          <input type="hidden" name="applicationId" value={applicationId} />
+          <button className="primary-button" type="submit">
+            Generate prep
+          </button>
+        </form>
+      </div>
+
+      {generatedAt ? <p className="muted">Generated {formatDate(generatedAt)}</p> : null}
+
+      {prep ? (
+        <div className="interview-prep-stack">
+          <section className="interview-prep-block" aria-labelledby="interview-questions-heading">
+            <h3 id="interview-questions-heading">Likely questions</h3>
+            {grouped.map((group) => (
+              <div className="question-group" key={group.category}>
+                <h4>{group.category}</h4>
+                <div className="question-list">
+                  {group.questions.map((question) => (
+                    <article className="question-card" key={question.question}>
+                      <div>
+                        <strong>{question.question}</strong>
+                        <ul>
+                          {question.talking_points.map((point) => (
+                            <li key={point}>{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      <DraftActionPanel
+                        compact
+                        kind="interview-practice"
+                        label="Practice answer"
+                        applicationId={applicationId}
+                        question={question.question}
+                      />
+                    </article>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </section>
+
+          <PrepList
+            heading="Company and role insights"
+            items={prep.company_insights}
+            emptyText="No company insights saved yet."
+          />
+          <PrepList
+            heading="Focus areas"
+            items={prep.focus_areas}
+            emptyText="No focus areas saved yet."
+          />
+        </div>
+      ) : (
+        <p className="empty-state">No interview prep generated yet.</p>
+      )}
+    </section>
+  );
+}
+
+function PrepList({
+  heading,
+  items,
+  emptyText
+}: {
+  heading: string;
+  items: string[];
+  emptyText: string;
+}) {
+  return (
+    <section className="interview-prep-block">
+      <h3>{heading}</h3>
+      {items.length ? (
+        <ul className="prep-list">
+          {items.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">{emptyText}</p>
+      )}
+    </section>
+  );
+}
+
+function groupInterviewQuestions(questions: InterviewPrepQuestion[]) {
+  const groups = new Map<string, InterviewPrepQuestion[]>();
+  for (const question of questions) {
+    const category = question.category || "General";
+    const rows = groups.get(category) ?? [];
+    rows.push(question);
+    groups.set(category, rows);
+  }
+  return Array.from(groups.entries()).map(([category, rows]) => ({
+    category,
+    questions: rows
+  }));
+}
+
 function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
@@ -708,6 +836,8 @@ function statusMessage(status: string) {
     tailor_error: "The tailoring drafts could not be saved.",
     tailored_resume_saved: "Tailored resume variant saved.",
     tailored_resume_error: "The tailored resume variant could not be saved.",
+    interview_prep_saved: "Interview prep saved.",
+    interview_prep_error: "Interview prep could not be saved.",
     url_saved: "Posting link saved.",
     url_invalid: "Enter a valid http or https posting link.",
     url_error: "The posting link could not be saved.",

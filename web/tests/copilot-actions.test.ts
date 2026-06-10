@@ -17,7 +17,10 @@ const mockSupabase = vi.hoisted(() => {
         follow_up_on: "2026-06-08",
         next_action: "Send a note",
         last_activity: "2026-06-01T00:00:00.000Z",
-        fit_score: 80
+        fit_score: 80,
+        notes: "Product analytics role focused on dashboards.",
+        requirement_matches: [],
+        ai_interview_prep: null
       }
     ],
     contacts: [
@@ -27,6 +30,12 @@ const mockSupabase = vi.hoisted(() => {
         company: "Acme",
         relationship: "recruiter",
         next_follow_up: "2026-06-08"
+      }
+    ],
+    profile: [
+      {
+        id: 1,
+        resume_text: "Built SQL dashboards and analytics workflows."
       }
     ]
   };
@@ -51,6 +60,14 @@ const mockSupabase = vi.hoisted(() => {
     is(column: string, value: unknown) {
       this.filters.push({ column, value });
       return this;
+    }
+
+    async maybeSingle() {
+      const rows = await this.resolve();
+      return {
+        data: rows.data[0] ?? null,
+        error: null
+      };
     }
 
     then<TResult1 = { data: unknown[]; error: null }, TResult2 = never>(
@@ -79,6 +96,9 @@ const mockSupabase = vi.hoisted(() => {
         }
         if (table === "contacts") {
           return new Query(state.contacts);
+        }
+        if (table === "profile") {
+          return new Query(state.profile);
         }
         throw new Error(`Unexpected table ${table}.`);
       }
@@ -118,6 +138,11 @@ describe("copilot action", () => {
     expect(mockAnthropic.requestClaudeText).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: expect.stringContaining("Acme")
+      })
+    );
+    expect(mockAnthropic.requestClaudeText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining("Built SQL dashboards")
       })
     );
   });
