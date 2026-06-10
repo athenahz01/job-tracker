@@ -1,31 +1,35 @@
 body {
   margin: 0;
   width: 360px;
-  background: #f6f4ef;
-  color: #18211f;
+  background: #f1efe8;
+  color: #1a2421;
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
 }
 
 main {
   display: grid;
-  gap: 14px;
-  padding: 18px;
+  gap: 16px;
+  padding: 20px;
 }
 
 h1 {
   margin: 3px 0 0;
-  font-size: 21px;
+  font-size: 30px;
+  font-weight: 600;
   line-height: 1.15;
+  letter-spacing: -0.4px;
 }
 
 .eyebrow {
   margin: 0;
-  color: #174f4b;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: #8a9089;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
 }
 
@@ -36,12 +40,12 @@ textarea {
 }
 
 button {
-  min-height: 40px;
-  border: 1px solid #2b6f6a;
-  border-radius: 6px;
-  background: #2b6f6a;
+  min-height: 36px;
+  border: 0.5px solid #1f6f67;
+  border-radius: 9px;
+  background: #1f6f67;
   color: #fff;
-  font-weight: 800;
+  font-weight: 500;
   cursor: pointer;
   transition:
     border-color 150ms ease,
@@ -51,9 +55,9 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #174f4b;
+  background: #15433f;
   transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(42, 50, 47, 0.1);
+  box-shadow: none;
 }
 
 button:disabled {
@@ -62,90 +66,90 @@ button:disabled {
 }
 
 button.secondary {
-  border-color: #d9ded8;
-  background: #fff;
-  color: #18211f;
+  border-color: #cfd4cd;
+  background: transparent;
+  color: #1a2421;
 }
 
 button.secondary:hover:not(:disabled) {
-  border-color: #2b6f6a;
-  background: #fbfcfb;
-  color: #174f4b;
+  border-color: #1f6f67;
+  background: #faf9f5;
+  color: #15433f;
 }
 
 form {
   display: grid;
-  gap: 10px;
-  border: 1px solid #d9ded8;
-  border-radius: 8px;
+  gap: 12px;
+  border: 0.5px solid #e4e1d8;
+  border-radius: 12px;
   background: #fff;
-  padding: 12px;
+  padding: 16px;
 }
 
 label {
   display: grid;
   gap: 6px;
-  color: #66716d;
-  font-size: 13px;
-  font-weight: 700;
+  color: #6b746f;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 input {
-  height: 38px;
-  border: 1px solid #d9ded8;
-  border-radius: 6px;
+  height: 36px;
+  border: 0.5px solid #e4e1d8;
+  border-radius: 9px;
   padding: 0 9px;
   background: #fff;
-  color: #18211f;
+  color: #1a2421;
 }
 
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(43, 111, 106, 0.2);
+  box-shadow: 0 0 0 3px rgba(31, 111, 103, 0.22);
 }
 
 .notice,
 .status {
   margin: 0;
-  border-radius: 6px;
+  border-radius: 9px;
   padding: 10px;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .notice {
-  border: 1px solid #d6bf82;
-  background: #fff6dd;
-  color: #946114;
+  border: 0.5px solid #f7eed8;
+  background: #f7eed8;
+  color: #7a5a14;
 }
 
 .status {
   min-height: 18px;
-  color: #66716d;
+  color: #6b746f;
 }
 
 .status.success {
-  border: 1px solid #b7d7c8;
-  background: #edf8f1;
-  color: #174f4b;
+  border: 0.5px solid #e8f4ea;
+  background: #e8f4ea;
+  color: #15433f;
 }
 
 .status.error {
-  border: 1px solid #f0bbb6;
-  background: #fff0f0;
-  color: #a8483f;
+  border: 0.5px solid #f7e6e0;
+  background: #f7e6e0;
+  color: #9a4636;
 }
 
 .fit-result,
 .autofill-result {
   display: grid;
   gap: 8px;
-  border: 1px solid #d9ded8;
-  border-radius: 8px;
+  border: 0.5px solid #e4e1d8;
+  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 6px 16px rgba(42, 50, 47, 0.08);
-  padding: 12px;
+  box-shadow: 0 1px 2px rgba(26, 36, 33, 0.04);
+  padding: 16px;
 }
 
 .fit-result[hidden],
@@ -164,8 +168,8 @@ textarea:focus-visible {
 .fit-result p,
 .autofill-result p {
   margin: 0;
-  color: #18211f;
-  font-size: 13px;
+  color: #1a2421;
+  font-size: 12.5px;
   line-height: 1.35;
 }
 
@@ -174,8 +178,8 @@ textarea:focus-visible {
   gap: 5px;
   margin: 0;
   padding-left: 18px;
-  color: #18211f;
-  font-size: 13px;
+  color: #1a2421;
+  font-size: 12.5px;
 }
 
 .autofill-result li {
@@ -194,7 +198,7 @@ textarea:focus-visible {
 .autofill-question {
   display: grid;
   gap: 7px;
-  border-top: 1px solid #d9ded8;
+  border-top: 0.5px solid #e4e1d8;
   padding-top: 8px;
 }
 
@@ -205,9 +209,9 @@ textarea:focus-visible {
 .draft-preview {
   display: grid;
   gap: 7px;
-  border: 1px solid #d9ded8;
-  border-radius: 6px;
-  background: #fbfcfb;
+  border: 0.5px solid #e4e1d8;
+  border-radius: 9px;
+  background: #faf9f5;
   padding: 8px;
 }
 
@@ -222,24 +226,24 @@ textarea:focus-visible {
   align-items: center;
   min-height: 24px;
   border-radius: 999px;
-  padding: 3px 8px;
+  padding: 2px 8px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .fit-high {
-  background: #ddf4e3;
-  color: #236b38;
+  background: #e8f4ea;
+  color: #2f6b3e;
 }
 
 .fit-medium {
-  background: #fff0bd;
-  color: #8a6500;
+  background: #f7eed8;
+  color: #7a5a14;
 }
 
 .fit-low {
-  background: #fae2df;
-  color: #9d3d34;
+  background: #f7e6e0;
+  color: #9a4636;
 }
 
 .fit-empty {

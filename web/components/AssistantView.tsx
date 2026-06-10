@@ -48,8 +48,21 @@ export default function AssistantView() {
         <div>
           <p className="eyebrow">Pipeline copilot</p>
           <h2 id="assistant-heading">Assistant</h2>
+          <p className="muted">Answers only from your tracker, resume, and saved contacts.</p>
         </div>
         <span className="flow-count">Tracker context only</span>
+      </div>
+      <div className="assistant-examples" aria-label="Example questions">
+        {examples.map((example) => (
+          <button
+            className="secondary-button"
+            key={example}
+            type="button"
+            onClick={() => setQuestion(example)}
+          >
+            {example}
+          </button>
+        ))}
       </div>
 
       <div className="assistant-layout">
@@ -70,6 +83,13 @@ export default function AssistantView() {
               </p>
             </div>
           )}
+          {isPending ? (
+            <div className="assistant-skeleton" aria-label="Assistant is thinking">
+              <span />
+              <span />
+              <span />
+            </div>
+          ) : null}
         </div>
 
         <form className="assistant-form" onSubmit={submitQuestion}>
@@ -82,18 +102,6 @@ export default function AssistantView() {
               placeholder="Ask what needs attention next..."
             />
           </label>
-          <div className="assistant-examples" aria-label="Example questions">
-            {examples.map((example) => (
-              <button
-                className="secondary-button"
-                key={example}
-                type="button"
-                onClick={() => setQuestion(example)}
-              >
-                {example}
-              </button>
-            ))}
-          </div>
           <button className="primary-button" type="submit" disabled={isPending}>
             {isPending ? "Thinking..." : "Ask assistant"}
           </button>

@@ -4,6 +4,7 @@ import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
 import ApplicationTableView from "../components/ApplicationTableView";
 import AssistantView from "../components/AssistantView";
 import ContactsSection from "../components/ContactsSection";
+import FitScoreBadge from "../components/FitScoreBadge";
 import FollowUpsView from "../components/FollowUpsView";
 import InsightsView from "../components/InsightsView";
 import PerformanceView from "../components/PerformanceView";
@@ -19,7 +20,7 @@ import {
   type ApplicationRow
 } from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
-import { stageClass } from "../lib/style-utils";
+import { priorityClass, stageClass } from "../lib/style-utils";
 import { filterAndSortApplications, parseTableState, type DashboardView } from "../lib/table-utils";
 import { type Stage, stages } from "../lib/stages";
 
@@ -246,7 +247,7 @@ function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) 
               {stageApplications.length ? (
                 stageApplications.map((application) => (
                   <Link
-                    className="application-card"
+                    className={`application-card board-card-${stageClass(application.stage)} ${application.priority ? `board-${priorityClass(application.priority)}` : ""}`}
                     href={`/applications/${application.id}`}
                     key={application.id}
                   >
@@ -254,7 +255,9 @@ function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) 
                       <h3>{application.company}</h3>
                       {application.role ? <p>{application.role}</p> : null}
                     </div>
-                    <p className="muted">{timeAgo(application.last_activity)}</p>
+                    <p className="muted">
+                      {application.next_action || application.source || "Tracked application"}
+                    </p>
                     <div className="badge-row">
                       <span className={`stage-pill ${stageClass(application.stage)}`}>
                         {application.stage}
@@ -266,6 +269,10 @@ function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) 
                       ) : null}
                       {application.is_orphan ? <span className="badge">Orphan</span> : null}
                       {application.stage_locked ? <span className="badge locked">Locked</span> : null}
+                    </div>
+                    <div className="board-card-footer">
+                      <FitScoreBadge score={application.fit_score} />
+                      <span>{timeAgo(application.last_activity)}</span>
                     </div>
                   </Link>
                 ))

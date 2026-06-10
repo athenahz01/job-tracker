@@ -187,7 +187,29 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
         </dl>
       </section>
 
-      {!isRecruiterOutreach ? <PostingBreakdownPanel breakdown={postingBreakdown} /> : null}
+      <div className="detail-main-grid">
+        <div className="detail-left-column">
+          {!isRecruiterOutreach ? <PostingBreakdownPanel breakdown={postingBreakdown} /> : null}
+
+          <section className="timeline-section">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">Activity</p>
+                <h2>Timeline</h2>
+              </div>
+              <span>{activityTimeline.length} items</span>
+            </div>
+            <div className="timeline">
+              {activityTimeline.length ? (
+                activityTimeline.map((item) => <TimelineActivityItem item={item} key={item.id} />)
+              ) : (
+                <p className="empty-state">No activity is linked yet.</p>
+              )}
+            </div>
+          </section>
+        </div>
+
+        <aside className="detail-right-column" aria-label="Application intelligence and actions">
 
       {!isRecruiterOutreach ? (
         <section className="action-panel ai-action-panel">
@@ -461,22 +483,8 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
         />
       ) : null}
 
-      <section className="timeline-section">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Activity</p>
-            <h2>Timeline</h2>
-          </div>
-          <span>{activityTimeline.length} items</span>
-        </div>
-        <div className="timeline">
-          {activityTimeline.length ? (
-            activityTimeline.map((item) => <TimelineActivityItem item={item} key={item.id} />)
-          ) : (
-            <p className="empty-state">No activity is linked yet.</p>
-          )}
-        </div>
-      </section>
+        </aside>
+      </div>
     </main>
   );
 }

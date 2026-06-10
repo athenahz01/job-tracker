@@ -22,6 +22,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       <form action={loginAction} className="login-box">
         <input type="hidden" name="next" value={next} />
         <div>
+          <span className="login-glyph" aria-hidden="true">JT</span>
           <p className="eyebrow">Private dashboard</p>
           <h1>Job Tracker</h1>
           <p className="muted">Enter the passphrase to continue.</p>

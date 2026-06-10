@@ -59,119 +59,140 @@ export default function ContactsSection({
         />
       </details>
 
+      <ReferralPipeline contacts={contacts} />
+
       {showReferralCheatSheet ? <ReferralCheatSheet /> : null}
 
-      <div className="table-scroll">
-        <table className="contacts-table">
-          <thead>
-            <tr>
-              <th scope="col">Name</th>
-              <th scope="col">Company</th>
-              <th scope="col">Title</th>
-              <th scope="col">Relationship</th>
-              <th scope="col">Pipeline</th>
-              <th scope="col">School</th>
-              <th scope="col">Linked application</th>
-              <th scope="col">Last contacted</th>
-              <th scope="col">Next follow-up</th>
-              <th scope="col">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {contacts.length ? (
-              contacts.map((contact) => {
-                const application = contactApplication(contact, applications);
-                return (
-                  <tr id={`contact-${contact.id}`} key={contact.id}>
-                    <td>
-                      <strong>{contact.name}</strong>
-                      {contact.email ? <p className="muted">{contact.email}</p> : null}
-                    </td>
-                    <td>
-                      {contact.company || "Not set"}
-                      {contact.past_companies.length ? (
-                        <p className="muted">Past: {contact.past_companies.join(", ")}</p>
-                      ) : null}
-                    </td>
-                    <td>{contact.title || "Not set"}</td>
-                    <td>{relationshipLabel(contact.relationship)}</td>
-                    <td>
-                      <span className={`outreach-pill ${outreachClass(contact.outreach_stage)}`}>
-                        {outreachStageLabel(contact.outreach_stage)}
-                      </span>
-                    </td>
-                    <td>{contact.school || "Not set"}</td>
-                    <td>
-                      {application ? (
-                        <Link href={`/applications/${application.id}`}>
-                          {application.company}
-                          {application.role ? `, ${application.role}` : ""}
-                        </Link>
-                      ) : (
-                        "Not linked"
-                      )}
-                    </td>
-                    <td>{contact.last_contacted || "Not set"}</td>
-                    <td>{contact.next_follow_up || "Not set"}</td>
-                    <td>
-                      <DraftActionPanel
-                        compact
-                        kind="contact-outreach"
-                        label="Draft outreach"
-                        contactId={contact.id}
-                      />
-                      <DraftActionPanel
-                        compact
-                        kind="networking"
-                        variant="follow_up_nudge"
-                        label="Draft nudge"
-                        contactId={contact.id}
-                        applicationId={application?.id}
-                      />
-                      <details className="row-editor">
-                        <summary>Edit</summary>
-                        <ContactForm
-                          action={updateContactAction}
-                          applications={applications}
-                          contact={contact}
-                          returnTo={returnTo}
-                          linkedApplicationId={linkedApplicationId}
-                        />
-                      </details>
-                      <form
-                        action={deleteContactAction}
-                        onSubmit={(event) => {
-                          if (!window.confirm(`Delete ${contact.name}?`)) {
-                            event.preventDefault();
-                          }
-                        }}
-                      >
-                        <input type="hidden" name="contactId" value={contact.id} />
-                        <input
-                          type="hidden"
-                          name="applicationId"
-                          value={contact.application_id ?? ""}
-                        />
-                        <input type="hidden" name="returnTo" value={returnTo} />
-                        <button className="text-danger-button" type="submit">
-                          Delete
-                        </button>
-                      </form>
-                    </td>
-                  </tr>
-                );
-              })
-            ) : (
-              <tr>
-                <td colSpan={10}>
-                  <p className="empty-state">No contacts yet.</p>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      {contacts.length ? (
+        <div className="contact-card-grid">
+          {contacts.map((contact) => {
+            const application = contactApplication(contact, applications);
+            return (
+              <article className="contact-card" id={`contact-${contact.id}`} key={contact.id}>
+                <div className="contact-card-top">
+                  <span className="contact-avatar" aria-hidden="true">
+                    {initials(contact.name)}
+                  </span>
+                  <div>
+                    <h3>{contact.name}</h3>
+                    <p className="muted">
+                      {[contact.title, contact.company].filter(Boolean).join(" at ") ||
+                        contact.email ||
+                        "Contact"}
+                    </p>
+                  </div>
+                  <span className={`outreach-pill ${outreachClass(contact.outreach_stage)}`}>
+                    {outreachStageLabel(contact.outreach_stage)}
+                  </span>
+                </div>
+
+                <div className="chip-row">
+                  {contact.relationship ? (
+                    <span className="tag-chip">{relationshipLabel(contact.relationship)}</span>
+                  ) : null}
+                  {contact.school ? <span className="tag-chip">{contact.school}</span> : null}
+                  {contact.past_companies.slice(0, 3).map((company) => (
+                    <span className="tag-chip" key={company}>
+                      Past: {company}
+                    </span>
+                  ))}
+                </div>
+
+                {application ? (
+                  <p className="muted">
+                    Linked to{" "}
+                    <Link href={`/applications/${application.id}`}>
+                      {application.company}
+                      {application.role ? `, ${application.role}` : ""}
+                    </Link>
+                  </p>
+                ) : null}
+
+                <div className="contact-card-actions">
+                  <DraftActionPanel
+                    compact
+                    kind="contact-outreach"
+                    label="Draft outreach"
+                    contactId={contact.id}
+                  />
+                  <DraftActionPanel
+                    compact
+                    kind="networking"
+                    variant="follow_up_nudge"
+                    label="Draft nudge"
+                    contactId={contact.id}
+                    applicationId={application?.id}
+                  />
+                </div>
+
+                <div className="contact-card-footer">
+                  <span>
+                    Next: {contact.next_follow_up || "Not set"}
+                  </span>
+                  <span>Last: {contact.last_contacted || "Not set"}</span>
+                </div>
+
+                <details className="row-editor">
+                  <summary>Edit contact</summary>
+                  <ContactForm
+                    action={updateContactAction}
+                    applications={applications}
+                    contact={contact}
+                    returnTo={returnTo}
+                    linkedApplicationId={linkedApplicationId}
+                  />
+                </details>
+                <form
+                  action={deleteContactAction}
+                  onSubmit={(event) => {
+                    if (!window.confirm(`Delete ${contact.name}?`)) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
+                  <input type="hidden" name="contactId" value={contact.id} />
+                  <input type="hidden" name="applicationId" value={contact.application_id ?? ""} />
+                  <input type="hidden" name="returnTo" value={returnTo} />
+                  <button className="text-danger-button" type="submit">
+                    Delete
+                  </button>
+                </form>
+              </article>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="empty-state">No contacts yet. Add one person you can ask for context or a referral.</p>
+      )}
     </section>
+  );
+}
+
+function ReferralPipeline({ contacts }: { contacts: Array<ContactRow | ContactWithApplication> }) {
+  const stages = outreachStages.map((stage) => ({
+    stage,
+    contacts: contacts.filter((contact) => contact.outreach_stage === stage)
+  }));
+
+  return (
+    <div className="referral-pipeline" aria-label="Referral pipeline">
+      {stages.map((stage) => (
+        <section className="referral-stage" key={stage.stage}>
+          <div>
+            <strong>{outreachStageLabel(stage.stage)}</strong>
+            <span>{stage.contacts.length}</span>
+          </div>
+          <div className="referral-chip-row">
+            {stage.contacts.slice(0, 4).map((contact) => (
+              <a href={`#contact-${contact.id}`} key={contact.id}>
+                {contact.name}
+              </a>
+            ))}
+            {!stage.contacts.length ? <span>No contacts yet</span> : null}
+          </div>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -328,4 +349,13 @@ function relationshipLabel(value: string | null) {
 
 function outreachClass(value: OutreachStage | null) {
   return value ? `outreach-${value.replace("_", "-")}` : "outreach-empty";
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("");
 }

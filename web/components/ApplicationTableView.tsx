@@ -198,6 +198,7 @@ export default function ApplicationTableView({ applications, state }: Applicatio
                 >
                   <td>
                     <strong>{application.company}</strong>
+                    {application.role ? <p className="table-role">{application.role}</p> : null}
                     {application.url ? (
                       <a
                         className="posting-link"
@@ -207,7 +208,7 @@ export default function ApplicationTableView({ applications, state }: Applicatio
                         onClick={(event) => event.stopPropagation()}
                         onKeyDown={(event) => event.stopPropagation()}
                       >
-                        Open posting
+                        Open
                       </a>
                     ) : null}
                   </td>

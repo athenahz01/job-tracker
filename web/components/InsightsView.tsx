@@ -37,54 +37,22 @@ export default function InsightsView({ data }: InsightsViewProps) {
         <div className="section-heading">
           <div>
             <p className="eyebrow">Overview</p>
-            <h3 id="headline-numbers-heading">Headline numbers and rates</h3>
+            <h3 id="headline-numbers-heading">Search health</h3>
           </div>
         </div>
         <div className="insight-headline-grid" aria-label="Headline numbers and rates">
-          {data.headlines.map((metric) => (
+          {data.headlines.slice(1, 3).map((metric) => (
             <article className="insight-stat" key={metric.label}>
               <p>{metric.label}</p>
               <strong>{metric.value}</strong>
             </article>
           ))}
           <RateCard label="Response rate" metric={data.rates.response} />
-          <RateCard label="Interview rate" metric={data.rates.interview} />
-          <RateCard label="Offer rate" metric={data.rates.offer} />
-        </div>
-      </section>
-
-      <section className="insight-panel" aria-labelledby="insights-funnel-heading">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Drop-off</p>
-            <h3 id="insights-funnel-heading">Conversion funnel</h3>
-          </div>
-        </div>
-        <div className="funnel-list">
-          {data.funnel.map((step, index) => {
-            const previousCount = index > 0 ? data.funnel[index - 1].count : null;
-            const dropped =
-              previousCount === null ? null : Math.max(0, previousCount - step.count);
-            return (
-              <div className="funnel-step" key={step.key}>
-                <div className="funnel-step-top">
-                  <strong>{step.label}</strong>
-                  <span>{step.count}</span>
-                </div>
-                <div className="funnel-bar-track" aria-hidden="true">
-                  <span
-                    className="funnel-bar-fill"
-                    style={{ width: `${barWidth(step.count, data.totalApplied)}%` }}
-                  />
-                </div>
-                <p className="muted">
-                  {step.conversion
-                    ? `${step.conversion.display} kept, ${dropped} dropped from previous step`
-                    : "Starting pool"}
-                </p>
-              </div>
-            );
-          })}
+          <article className="insight-feature-card">
+            <p>Applied</p>
+            <strong>{data.totalApplied || "-"}</strong>
+            <span>{data.savedBacklog} saved for later</span>
+          </article>
         </div>
       </section>
 
@@ -103,6 +71,20 @@ export default function InsightsView({ data }: InsightsViewProps) {
         ) : (
           <p className="empty-state">Dates are not available yet for a daily trend.</p>
         )}
+      </section>
+
+      <section className="insight-panel" aria-labelledby="insight-highlights-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Highlights</p>
+            <h3 id="insight-highlights-heading">What the numbers say</h3>
+          </div>
+        </div>
+        <ul className="insight-highlight-list">
+          <HighlightItem text={`${data.rates.response.display} response rate across ${data.totalApplied} applied applications.`} />
+          <HighlightItem text={`${data.rates.interview.display} interview rate based on phone screens and later stages.`} />
+          <HighlightItem text={dropOffHighlight(data)} />
+        </ul>
       </section>
 
       <section className="insight-panel" aria-labelledby="location-applications-heading">
@@ -170,13 +152,16 @@ function DailyApplicationsChart({ data }: { data: InsightsData["dailyApplication
           return (
             <g key={item.day}>
               <rect
-                className="daily-bar"
+                className={`daily-bar ${item.count === maxCount ? "daily-bar-peak" : ""}`}
                 height={barHeight}
                 rx="4"
                 width={barWidthValue}
                 x={x}
                 y={y}
               />
+              <title>
+                {item.count} {item.count === 1 ? "application" : "applications"} on {item.day}
+              </title>
               <text className="daily-count" textAnchor="middle" x={x + barWidthValue / 2} y={y - 6}>
                 {item.count || ""}
               </text>
@@ -195,6 +180,15 @@ function DailyApplicationsChart({ data }: { data: InsightsData["dailyApplication
         })}
       </svg>
     </div>
+  );
+}
+
+function HighlightItem({ text }: { text: string }) {
+  return (
+    <li>
+      <span aria-hidden="true">i</span>
+      <p>{text}</p>
+    </li>
   );
 }
 
@@ -230,6 +224,24 @@ function LocationApplicationsList({
       ) : null}
     </div>
   );
+}
+
+function dropOffHighlight(data: InsightsData) {
+  const biggestDrop = data.funnel
+    .map((step, index) => {
+      const previous = index > 0 ? data.funnel[index - 1] : null;
+      return {
+        label: previous ? `${previous.label} to ${step.label}` : step.label,
+        dropped: previous ? Math.max(0, previous.count - step.count) : 0
+      };
+    })
+    .sort((left, right) => right.dropped - left.dropped)[0];
+
+  if (!biggestDrop || biggestDrop.dropped === 0) {
+    return "No major drop-off is visible yet.";
+  }
+
+  return `${biggestDrop.dropped} applications drop from ${biggestDrop.label}.`;
 }
 
 function barWidth(count: number, total: number) {

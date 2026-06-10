@@ -93,7 +93,7 @@
         return;
       }
 
-      renderFitResult(response);
+      renderFitResult(response, capture);
       setStatus("Fit checked.", "success");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not check fit.", "error");
@@ -274,16 +274,17 @@
         renderFitUnavailable(
           fitResponse && fitResponse.message
             ? fitResponse.message
-            : "Fit is unavailable for this saved job."
+            : "Fit is unavailable for this saved job.",
+          capture
         );
         setStatus("Saved. Fit unavailable.", "success");
         return;
       }
 
-      renderFitResult(fitResponse);
+      renderFitResult(fitResponse, capture);
       setStatus("Saved. Fit checked.", "success");
     } catch {
-      renderFitUnavailable("Fit is unavailable for this saved job.");
+      renderFitUnavailable("Fit is unavailable for this saved job.", capture);
       setStatus("Saved. Fit unavailable.", "success");
     }
   }
@@ -306,7 +307,7 @@
     setStatus("", "");
   }
 
-  function renderFitResult(result) {
+  function renderFitResult(result, capture) {
     const score = Number.isFinite(result.fit_score) ? Math.round(result.fit_score) : null;
     const keywords = Array.isArray(result.missing_keywords)
       ? result.missing_keywords.slice(0, 5)
@@ -319,7 +320,7 @@
     header.className = "fit-result-header";
 
     const title = document.createElement("strong");
-    title.textContent = "Fit";
+    title.textContent = fitTitle(capture);
     header.append(title);
 
     const badge = document.createElement("span");
@@ -353,7 +354,7 @@
     fitResult.innerHTML = "";
   }
 
-  function renderFitUnavailable(message) {
+  function renderFitUnavailable(message, capture) {
     fitResult.hidden = false;
     fitResult.innerHTML = "";
 
@@ -361,7 +362,7 @@
     header.className = "fit-result-header";
 
     const title = document.createElement("strong");
-    title.textContent = "Fit";
+    title.textContent = fitTitle(capture);
     header.append(title);
 
     const badge = document.createElement("span");
@@ -373,6 +374,15 @@
     const summary = document.createElement("p");
     summary.textContent = message || "Fit is unavailable for this saved job.";
     fitResult.append(summary);
+  }
+
+  function fitTitle(capture) {
+    const company = shared.trimText(capture && capture.company, 80);
+    const role = shared.trimText(capture && capture.role, 80);
+    if (company && role) {
+      return `${company} - ${role}`;
+    }
+    return company || role || "Fit";
   }
 
   function renderAutofillResult(result, capture) {
