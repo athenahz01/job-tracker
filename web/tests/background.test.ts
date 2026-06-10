@@ -50,6 +50,83 @@ describe("extension background", () => {
       })
     );
   });
+
+  it("checks fit through the background worker", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        fit_score: 82,
+        fit_summary: "Strong fit with one analytics gap.",
+        missing_keywords: ["Experimentation", 42, "Lifecycle"]
+      })
+    });
+    const listener = loadBackground(fetchMock, {
+      apiBaseUrl: "http://localhost:3000",
+      apiSecret: "test-secret"
+    });
+
+    const response = await sendBackgroundMessage(listener, {
+      type: "CHECK_FIT",
+      capture: {
+        company: "Acme",
+        role: "Product Analyst",
+        notes: "SQL dashboards and experimentation"
+      }
+    });
+
+    expect(response).toEqual({
+      ok: true,
+      fit_score: 82,
+      fit_summary: "Strong fit with one analytics gap.",
+      missing_keywords: ["Experimentation", "Lifecycle"]
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:3000/api/score",
+      expect.objectContaining({
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-extension-api-secret": "test-secret"
+        },
+        body: expect.any(String)
+      })
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      company: "Acme",
+      role: "Product Analyst",
+      jobDescription: "SQL dashboards and experimentation"
+    });
+  });
+
+  it("keeps check fit errors readable", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({
+        ok: false,
+        reason: "no_resume"
+      })
+    });
+    const listener = loadBackground(fetchMock, {
+      apiBaseUrl: "http://localhost:3000",
+      apiSecret: "test-secret"
+    });
+
+    const response = await sendBackgroundMessage(listener, {
+      type: "CHECK_FIT",
+      capture: {
+        company: "Acme"
+      }
+    });
+
+    expect(response).toMatchObject({
+      ok: false,
+      reason: "no_resume",
+      message: "Paste your master resume in the dashboard Profile tab first."
+    });
+  });
 });
 
 function loadBackground(

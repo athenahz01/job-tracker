@@ -233,6 +233,7 @@
 
   async function postCapture(capture, source, stage) {
     setStatus(stage === "Applied" ? "Marking as applied..." : "Saving for later...", "");
+    clearFitResult();
     const response = await chrome.runtime.sendMessage({
       type: "SAVE_APPLICATION",
       capture,
@@ -248,10 +249,43 @@
 
     manualForm.hidden = true;
     if (stage === "Applied") {
-      setStatus(response.deduped ? "Moved to Applied." : "Marked as applied.", "success");
+      setStatus(
+        response.deduped ? "Moved to Applied. Checking fit..." : "Marked as applied. Checking fit...",
+        "success"
+      );
+      await showFitAfterSave(capture);
       return;
     }
-    setStatus(response.deduped ? "Already saved." : "Saved for later.", "success");
+    setStatus(
+      response.deduped ? "Already saved. Checking fit..." : "Saved for later. Checking fit...",
+      "success"
+    );
+    await showFitAfterSave(capture);
+  }
+
+  async function showFitAfterSave(capture) {
+    try {
+      const fitResponse = await chrome.runtime.sendMessage({
+        type: "CHECK_FIT",
+        capture
+      });
+
+      if (!fitResponse || !fitResponse.ok) {
+        renderFitUnavailable(
+          fitResponse && fitResponse.message
+            ? fitResponse.message
+            : "Fit is unavailable for this saved job."
+        );
+        setStatus("Saved. Fit unavailable.", "success");
+        return;
+      }
+
+      renderFitResult(fitResponse);
+      setStatus("Saved. Fit checked.", "success");
+    } catch {
+      renderFitUnavailable("Fit is unavailable for this saved job.");
+      setStatus("Saved. Fit unavailable.", "success");
+    }
   }
 
   function populateForm(capture, stage) {
@@ -317,6 +351,28 @@
   function clearFitResult() {
     fitResult.hidden = true;
     fitResult.innerHTML = "";
+  }
+
+  function renderFitUnavailable(message) {
+    fitResult.hidden = false;
+    fitResult.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "fit-result-header";
+
+    const title = document.createElement("strong");
+    title.textContent = "Fit";
+    header.append(title);
+
+    const badge = document.createElement("span");
+    badge.className = "fit-badge fit-empty";
+    badge.textContent = "Unavailable";
+    header.append(badge);
+    fitResult.append(header);
+
+    const summary = document.createElement("p");
+    summary.textContent = message || "Fit is unavailable for this saved job.";
+    fitResult.append(summary);
   }
 
   function renderAutofillResult(result, capture) {

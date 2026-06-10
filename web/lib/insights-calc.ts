@@ -9,6 +9,7 @@ export type InsightsApplication = {
   kind?: string;
   merged_into_id?: string | null;
   first_seen: string | null;
+  location?: string | null;
   tags?: string[] | null;
 };
 
@@ -37,9 +38,14 @@ export type FunnelStep = {
   conversion: RateMetric | null;
 };
 
-export type WeeklyApplicationCount = {
-  weekStart: string;
+export type DailyApplicationCount = {
+  day: string;
   label: string;
+  count: number;
+};
+
+export type LocationApplicationCount = {
+  location: string;
   count: number;
 };
 
@@ -53,7 +59,8 @@ export type InsightsData = {
     offer: RateMetric;
   };
   funnel: FunnelStep[];
-  weeklyApplications: WeeklyApplicationCount[];
+  dailyApplications: DailyApplicationCount[];
+  locationApplications: LocationApplicationCount[];
 };
 
 type ApplicationSummary = InsightsApplication & {
@@ -118,7 +125,8 @@ export function buildInsightsData(
       offer: rate(offerCount, totalApplied)
     },
     funnel: buildFunnel(summaries),
-    weeklyApplications: buildWeeklyApplications(summaries)
+    dailyApplications: buildDailyApplications(summaries),
+    locationApplications: buildLocationApplications(summaries)
   };
 }
 
@@ -165,7 +173,7 @@ function buildFunnel(summaries: ApplicationSummary[]): FunnelStep[] {
   }));
 }
 
-function buildWeeklyApplications(summaries: ApplicationSummary[]) {
+function buildDailyApplications(summaries: ApplicationSummary[]): DailyApplicationCount[] {
   const dated = summaries
     .map((application) => parseDate(application.first_seen))
     .filter((date): date is Date => Boolean(date));
@@ -174,24 +182,51 @@ function buildWeeklyApplications(summaries: ApplicationSummary[]) {
     return [];
   }
 
-  const latestWeek = startOfUtcWeek(
-    dated.reduce((latest, date) => (date.getTime() > latest.getTime() ? date : latest), dated[0])
+  const latest = dated.reduce(
+    (latestDate, date) => (date.getTime() > latestDate.getTime() ? date : latestDate),
+    dated[0]
   );
+  const monthStart = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth(), 1));
+  const monthEnd = new Date(Date.UTC(latest.getUTCFullYear(), latest.getUTCMonth() + 1, 0));
+  const dayCount = monthEnd.getUTCDate();
   const counts = new Map<string, number>();
+
   for (const date of dated) {
-    const week = startOfUtcWeek(date).toISOString().slice(0, 10);
-    counts.set(week, (counts.get(week) ?? 0) + 1);
+    if (
+      date.getUTCFullYear() !== latest.getUTCFullYear() ||
+      date.getUTCMonth() !== latest.getUTCMonth()
+    ) {
+      continue;
+    }
+    const key = isoDay(date);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
 
-  return Array.from({ length: 12 }, (_, index) => {
-    const week = addUtcDays(latestWeek, (index - 11) * 7);
-    const key = week.toISOString().slice(0, 10);
+  return Array.from({ length: dayCount }, (_, index) => {
+    const day = addUtcDays(monthStart, index);
+    const key = isoDay(day);
     return {
-      weekStart: key,
-      label: formatWeekLabel(week),
+      day: key,
+      label: formatDayLabel(day),
       count: counts.get(key) ?? 0
     };
   });
+}
+
+function buildLocationApplications(summaries: ApplicationSummary[]): LocationApplicationCount[] {
+  const counts = new Map<string, number>();
+  for (const application of summaries) {
+    const location = normalizeLocation(application.location);
+    if (!location) {
+      continue;
+    }
+    counts.set(location, (counts.get(location) ?? 0) + 1);
+  }
+
+  return Array.from(counts.entries())
+    .map(([location, count]) => ({ location, count }))
+    .sort((left, right) => right.count - left.count || left.location.localeCompare(right.location))
+    .slice(0, 8);
 }
 
 function groupEventsByApplication(events: InsightsEvent[]) {
@@ -234,23 +269,36 @@ function parseDate(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function startOfUtcWeek(date: Date) {
-  const week = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const daysSinceMonday = (week.getUTCDay() + 6) % 7;
-  week.setUTCDate(week.getUTCDate() - daysSinceMonday);
-  return week;
-}
-
 function addUtcDays(date: Date, days: number) {
   const next = new Date(date);
   next.setUTCDate(next.getUTCDate() + days);
   return next;
 }
 
-function formatWeekLabel(date: Date) {
+function isoDay(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDayLabel(date: Date) {
   return new Intl.DateTimeFormat("en", {
-    month: "short",
     day: "numeric",
     timeZone: "UTC"
   }).format(date);
+}
+
+function normalizeLocation(value: string | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const cleaned = value.replace(/\s+/g, " ").trim();
+  if (!cleaned) {
+    return null;
+  }
+
+  if (/remote/i.test(cleaned)) {
+    return "Remote";
+  }
+
+  return cleaned.replace(/\s+\((hybrid|onsite|remote)\)$/i, "");
 }

@@ -487,36 +487,78 @@ tr[tabindex]:focus-visible {
   background: var(--accent);
 }
 
-.weekly-chart-wrap {
+.daily-chart-wrap {
   overflow-x: auto;
 }
 
-.weekly-chart {
+.daily-chart {
   display: block;
   width: 100%;
   min-width: 680px;
   height: auto;
 }
 
-.weekly-axis {
+.daily-axis {
   stroke: var(--line-strong);
   stroke-width: 1;
 }
 
-.weekly-bar {
+.daily-bar {
   fill: var(--accent);
   opacity: 0.82;
 }
 
-.weekly-count {
+.daily-count {
   fill: var(--text);
   font-size: 12px;
   font-weight: 800;
 }
 
-.weekly-label {
+.daily-label {
   fill: var(--muted);
   font-size: 11px;
+}
+
+.location-list {
+  display: grid;
+  gap: 12px;
+}
+
+.location-row {
+  display: grid;
+  gap: 7px;
+}
+
+.location-row-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.location-row-top strong {
+  min-width: 0;
+  font-size: 14px;
+}
+
+.location-row-top span {
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.location-bar-track {
+  overflow: hidden;
+  height: 10px;
+  border-radius: 999px;
+  background: #e9eeeb;
+}
+
+.location-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
 }
 
 .filters,
@@ -1285,6 +1327,48 @@ tr[tabindex]:focus-visible {
   margin-top: 5px;
   color: var(--muted);
   line-height: 1.45;
+}
+
+.posting-breakdown-panel {
+  display: grid;
+}
+
+.posting-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.posting-breakdown-card,
+.posting-raw-notes {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.posting-breakdown-card h3,
+.posting-raw-notes h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.posting-breakdown-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding-left: 18px;
+}
+
+.posting-breakdown-card li,
+.posting-raw-notes p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.posting-raw-notes p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
 }
 
 .action-panel h2,

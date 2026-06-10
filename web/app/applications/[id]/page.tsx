@@ -7,6 +7,10 @@ import DraftActionPanel from "../../../components/DraftActionPanel";
 import FitScoreBadge from "../../../components/FitScoreBadge";
 import MergeForm from "../../../components/MergeForm";
 import {
+  buildApplicationTimeline,
+  type ApplicationTimelineItem
+} from "../../../lib/application-timeline";
+import {
   clearStageLockAction,
   generateInterviewPrepAction,
   generateTailoredResumeAction,
@@ -20,9 +24,10 @@ import {
   updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
-import { formatConfidence, formatDate, gmailUrl, timeAgo } from "../../../lib/format";
+import { formatDate, timeAgo } from "../../../lib/format";
 import type { InterviewPrep, InterviewPrepQuestion } from "../../../lib/interview-prep-shape";
 import { outreachStageLabel, type WarmPathMatch } from "../../../lib/networking";
+import { buildPostingBreakdown, type PostingBreakdown } from "../../../lib/posting-breakdown";
 import { buildResumeDiff, type ResumeDiffLine } from "../../../lib/resume-diff";
 import { priorityClass, stageClass } from "../../../lib/style-utils";
 import { stages } from "../../../lib/stages";
@@ -56,6 +61,16 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
   const tailoredResumeDiff = application.ai_tailored_resume
     ? buildResumeDiff(masterResumeText, application.ai_tailored_resume)
     : [];
+  const postingBreakdown = buildPostingBreakdown({
+    notes: application.notes,
+    salary: application.salary,
+    location: application.location
+  });
+  const activityTimeline = buildApplicationTimeline({
+    application,
+    events,
+    contacts
+  });
 
   return (
     <main className="detail-shell">
@@ -169,9 +184,10 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               </a>
             </DetailValue>
           ) : null}
-          {application.notes ? <DetailValue label="Notes">{application.notes}</DetailValue> : null}
         </dl>
       </section>
+
+      {!isRecruiterOutreach ? <PostingBreakdownPanel breakdown={postingBreakdown} /> : null}
 
       {!isRecruiterOutreach ? (
         <section className="action-panel ai-action-panel">
@@ -448,37 +464,16 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       <section className="timeline-section">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Email history</p>
+            <p className="eyebrow">Activity</p>
             <h2>Timeline</h2>
           </div>
-          <span>{events.length} events</span>
+          <span>{activityTimeline.length} items</span>
         </div>
         <div className="timeline">
-          {events.length ? (
-            events.map((event) => (
-              <article className="timeline-item" key={event.id}>
-                <div className="timeline-meta">
-                  <span>{formatDate(event.received_at)}</span>
-                  <a href={gmailUrl(event)} target="_blank" rel="noreferrer">
-                    Open in Gmail
-                  </a>
-                </div>
-                <h3>{event.subject || "No subject"}</h3>
-                <p className="muted">{event.from_address || "Unknown sender"}</p>
-                <div className="badge-row">
-                  {event.detected_stage ? (
-                    <span className={`stage-pill ${stageClass(event.detected_stage)}`}>
-                      {event.detected_stage}
-                    </span>
-                  ) : null}
-                  <span className="badge">{formatConfidence(event.confidence)}</span>
-                  {event.category ? <span className="badge">{event.category}</span> : null}
-                </div>
-                {event.summary ? <p>{event.summary}</p> : null}
-              </article>
-            ))
+          {activityTimeline.length ? (
+            activityTimeline.map((item) => <TimelineActivityItem item={item} key={item.id} />)
           ) : (
-            <p className="empty-state">No email events are linked yet.</p>
+            <p className="empty-state">No activity is linked yet.</p>
           )}
         </div>
       </section>
@@ -492,6 +487,84 @@ function DetailValue({ label, children }: { label: string; children: ReactNode }
       <dt>{label}</dt>
       <dd>{children}</dd>
     </div>
+  );
+}
+
+function PostingBreakdownPanel({ breakdown }: { breakdown: PostingBreakdown }) {
+  if (!breakdown.sections.length && !breakdown.rawNotes) {
+    return (
+      <section className="action-panel posting-breakdown-panel">
+        <div>
+          <p className="eyebrow">Posting</p>
+          <h2>Job Description</h2>
+        </div>
+        <p className="empty-state">No posting text has been saved yet.</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="action-panel posting-breakdown-panel" aria-labelledby="posting-breakdown-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Posting</p>
+          <h2 id="posting-breakdown-heading">Job Description</h2>
+          <p className="muted">Structured from saved posting text. Raw notes stay unchanged below.</p>
+        </div>
+      </div>
+
+      {breakdown.sections.length ? (
+        <div className="posting-breakdown-grid">
+          {breakdown.sections.map((section) => (
+            <article className="posting-breakdown-card" key={section.key}>
+              <h3>{section.label}</h3>
+              <ul>
+                {section.items.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
+      ) : breakdown.rawNotes ? (
+        <div className="posting-raw-notes">
+          <h3>Raw notes</h3>
+          <p>{breakdown.rawNotes}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function TimelineActivityItem({ item }: { item: ApplicationTimelineItem }) {
+  return (
+    <article className="timeline-item" key={item.id}>
+      <div className="timeline-meta">
+        <span>{formatDate(item.occurredAt)}</span>
+        {item.href && item.hrefLabel ? (
+          <a href={item.href} target="_blank" rel="noreferrer">
+            {item.hrefLabel}
+          </a>
+        ) : null}
+      </div>
+      <h3>{item.title}</h3>
+      {item.description ? <p>{item.description}</p> : null}
+      {item.badges.length ? (
+        <div className="badge-row">
+          {item.badges.map((badge) =>
+            badge.kind === "stage" ? (
+              <span className={`stage-pill ${stageClass(badge.label)}`} key={badge.label}>
+                {badge.label}
+              </span>
+            ) : (
+              <span className="badge" key={badge.label}>
+                {badge.label}
+              </span>
+            )
+          )}
+        </div>
+      ) : null}
+    </article>
   );
 }
 

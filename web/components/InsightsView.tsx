@@ -4,9 +4,9 @@ type InsightsViewProps = {
   data: InsightsData;
 };
 
-const weeklyChartWidth = 760;
-const weeklyChartHeight = 220;
-const weeklyChartPadding = {
+const dailyChartWidth = 760;
+const dailyChartHeight = 220;
+const dailyChartPadding = {
   top: 18,
   right: 16,
   bottom: 42,
@@ -29,7 +29,7 @@ export default function InsightsView({ data }: InsightsViewProps) {
       {!hasApplied ? (
         <p className="empty-state">
           Apply to a few roles and this page will start showing response rates, drop-off, and
-          weekly activity.
+          daily activity.
         </p>
       ) : null}
 
@@ -88,17 +88,34 @@ export default function InsightsView({ data }: InsightsViewProps) {
         </div>
       </section>
 
-      <section className="insight-panel" aria-labelledby="weekly-applications-heading">
+      <section className="insight-panel" aria-labelledby="daily-applications-heading">
         <div className="section-heading">
           <div>
             <p className="eyebrow">Momentum</p>
-            <h3 id="weekly-applications-heading">Applications over time</h3>
+            <h3 id="daily-applications-heading">Applications over time</h3>
+            {data.dailyApplications.length ? (
+              <p className="muted">{formatMonthLabel(data.dailyApplications[0].day)}</p>
+            ) : null}
           </div>
         </div>
-        {data.weeklyApplications.length ? (
-          <WeeklyApplicationsChart data={data.weeklyApplications} />
+        {data.dailyApplications.length ? (
+          <DailyApplicationsChart data={data.dailyApplications} />
         ) : (
-          <p className="empty-state">Dates are not available yet for a weekly trend.</p>
+          <p className="empty-state">Dates are not available yet for a daily trend.</p>
+        )}
+      </section>
+
+      <section className="insight-panel" aria-labelledby="location-applications-heading">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Location</p>
+            <h3 id="location-applications-heading">Applications by location</h3>
+          </div>
+        </div>
+        {data.locationApplications.length ? (
+          <LocationApplicationsList data={data.locationApplications} total={data.totalApplied} />
+        ) : (
+          <p className="empty-state">No clean location data is available yet.</p>
         )}
       </section>
     </section>
@@ -117,52 +134,58 @@ function RateCard({ label, metric }: { label: string; metric: RateMetric }) {
   );
 }
 
-function WeeklyApplicationsChart({ data }: { data: InsightsData["weeklyApplications"] }) {
+function DailyApplicationsChart({ data }: { data: InsightsData["dailyApplications"] }) {
   const maxCount = Math.max(...data.map((item) => item.count), 1);
-  const chartInnerWidth = weeklyChartWidth - weeklyChartPadding.left - weeklyChartPadding.right;
-  const chartInnerHeight = weeklyChartHeight - weeklyChartPadding.top - weeklyChartPadding.bottom;
+  const chartInnerWidth = dailyChartWidth - dailyChartPadding.left - dailyChartPadding.right;
+  const chartInnerHeight = dailyChartHeight - dailyChartPadding.top - dailyChartPadding.bottom;
   const slotWidth = chartInnerWidth / data.length;
-  const barWidthValue = Math.max(14, slotWidth * 0.58);
+  const barWidthValue = Math.max(4, Math.min(16, slotWidth * 0.66));
+  const tickEvery = data.length > 30 ? 5 : data.length > 20 ? 4 : 3;
 
   return (
-    <div className="weekly-chart-wrap">
+    <div className="daily-chart-wrap">
       <svg
-        className="weekly-chart"
+        className="daily-chart"
         role="img"
-        aria-labelledby="weekly-applications-title"
-        viewBox={`0 0 ${weeklyChartWidth} ${weeklyChartHeight}`}
+        aria-labelledby="daily-applications-title"
+        viewBox={`0 0 ${dailyChartWidth} ${dailyChartHeight}`}
       >
-        <title id="weekly-applications-title">Weekly applications over the last twelve weeks</title>
+        <title id="daily-applications-title">
+          Daily applications in {formatMonthLabel(data[0].day)}
+        </title>
         <line
-          className="weekly-axis"
-          x1={weeklyChartPadding.left}
-          x2={weeklyChartWidth - weeklyChartPadding.right}
-          y1={weeklyChartHeight - weeklyChartPadding.bottom}
-          y2={weeklyChartHeight - weeklyChartPadding.bottom}
+          className="daily-axis"
+          x1={dailyChartPadding.left}
+          x2={dailyChartWidth - dailyChartPadding.right}
+          y1={dailyChartHeight - dailyChartPadding.bottom}
+          y2={dailyChartHeight - dailyChartPadding.bottom}
         />
         {data.map((item, index) => {
           const barHeight = (item.count / maxCount) * chartInnerHeight;
-          const x = weeklyChartPadding.left + index * slotWidth + (slotWidth - barWidthValue) / 2;
-          const y = weeklyChartPadding.top + chartInnerHeight - barHeight;
+          const x = dailyChartPadding.left + index * slotWidth + (slotWidth - barWidthValue) / 2;
+          const y = dailyChartPadding.top + chartInnerHeight - barHeight;
+          const dayNumber = index + 1;
+          const showTick =
+            index === 0 || index === data.length - 1 || (dayNumber - 1) % tickEvery === 0;
           return (
-            <g key={item.weekStart}>
+            <g key={item.day}>
               <rect
-                className="weekly-bar"
+                className="daily-bar"
                 height={barHeight}
                 rx="4"
                 width={barWidthValue}
                 x={x}
                 y={y}
               />
-              <text className="weekly-count" textAnchor="middle" x={x + barWidthValue / 2} y={y - 6}>
+              <text className="daily-count" textAnchor="middle" x={x + barWidthValue / 2} y={y - 6}>
                 {item.count || ""}
               </text>
-              {index % 2 === 0 ? (
+              {showTick ? (
                 <text
-                  className="weekly-label"
+                  className="daily-label"
                   textAnchor="middle"
                   x={x + barWidthValue / 2}
-                  y={weeklyChartHeight - 16}
+                  y={dailyChartHeight - 16}
                 >
                   {item.label}
                 </text>
@@ -175,9 +198,56 @@ function WeeklyApplicationsChart({ data }: { data: InsightsData["weeklyApplicati
   );
 }
 
+function LocationApplicationsList({
+  data,
+  total
+}: {
+  data: InsightsData["locationApplications"];
+  total: number;
+}) {
+  const maxCount = Math.max(...data.map((item) => item.count), 1);
+
+  return (
+    <div className="location-list">
+      {data.map((item) => (
+        <div className="location-row" key={item.location}>
+          <div className="location-row-top">
+            <strong>{item.location}</strong>
+            <span>
+              {item.count} {item.count === 1 ? "application" : "applications"}
+            </span>
+          </div>
+          <div className="location-bar-track" aria-hidden="true">
+            <span
+              className="location-bar-fill"
+              style={{ width: `${barWidth(item.count, maxCount)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+      {data.reduce((sum, item) => sum + item.count, 0) < total ? (
+        <p className="muted">Some applications do not have a clean saved location yet.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function barWidth(count: number, total: number) {
   if (!total) {
     return 0;
   }
   return Math.max(4, Math.round((count / total) * 100));
+}
+
+function formatMonthLabel(day: string) {
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime())) {
+    return "selected month";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC"
+  }).format(date);
 }

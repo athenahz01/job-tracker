@@ -120,6 +120,97 @@ describe("insights calculations", () => {
     expect(data.rates.interview.display).toBe("100%");
   });
 
+  it("builds full daily buckets for the latest application month", () => {
+    const data = buildInsightsData(
+      [
+        application({
+          id: "old-month",
+          first_seen: "2026-05-31T23:30:00.000Z"
+        }),
+        application({
+          id: "june-one",
+          first_seen: "2026-06-01T04:00:00.000Z"
+        }),
+        application({
+          id: "june-one-late",
+          first_seen: "2026-06-01T22:00:00.000Z"
+        }),
+        application({
+          id: "june-ten",
+          first_seen: "2026-06-10T13:00:00.000Z"
+        }),
+        application({
+          id: "july-anchor",
+          first_seen: "2026-07-04T10:00:00.000Z"
+        }),
+        application({
+          id: "july-anchor-two",
+          first_seen: "2026-07-04T23:00:00.000Z"
+        }),
+        application({
+          id: "july-later",
+          first_seen: "2026-07-20T09:00:00.000Z"
+        })
+      ],
+      []
+    );
+
+    expect(data.dailyApplications).toHaveLength(31);
+    expect(data.dailyApplications[0]).toEqual({
+      day: "2026-07-01",
+      label: "1",
+      count: 0
+    });
+    expect(data.dailyApplications[3]).toEqual({
+      day: "2026-07-04",
+      label: "4",
+      count: 2
+    });
+    expect(data.dailyApplications[9]).toMatchObject({
+      day: "2026-07-10",
+      count: 0
+    });
+    expect(data.dailyApplications[19]).toMatchObject({
+      day: "2026-07-20",
+      count: 1
+    });
+    expect(data.dailyApplications.at(-1)).toMatchObject({
+      day: "2026-07-31",
+      count: 0
+    });
+  });
+
+  it("returns no daily buckets when application dates are unavailable", () => {
+    const data = buildInsightsData(
+      [
+        application({
+          id: "undated",
+          first_seen: null
+        })
+      ],
+      []
+    );
+
+    expect(data.dailyApplications).toEqual([]);
+  });
+
+  it("groups applications by clean saved location", () => {
+    const data = buildInsightsData(
+      [
+        application({ id: "remote-one", location: "Remote US" }),
+        application({ id: "remote-two", location: "Remote" }),
+        application({ id: "nyc", location: "New York, NY" }),
+        application({ id: "missing-location", location: null })
+      ],
+      []
+    );
+
+    expect(data.locationApplications).toEqual([
+      { location: "Remote", count: 2 },
+      { location: "New York, NY", count: 1 }
+    ]);
+  });
+
 });
 
 function application(overrides: Partial<InsightsApplication>): InsightsApplication {
