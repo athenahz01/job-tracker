@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 RAW_SNIPPET_CHARS = 500
 WRITTEN_CATEGORIES = {"application_event", "recruiter_outreach"}
 POSTING_LOOKBACK_DAYS = 45
-ROLE_MATCH_THRESHOLD = 0.62
+ROLE_MATCH_THRESHOLD = 0.80
 PLACEHOLDER_PHRASES = (
     "thank you for applying",
     "thanks for applying",

@@ -77,8 +77,7 @@ def poll_once(
 
     if not dry_run:
         filled_count = backfill_application_posting_enrichment(resolved_supabase)
-        if filled_count:
-            logger.info("backfilled posting data on %s applications", filled_count)
+        logger.info("backfilled posting data on %s applications", filled_count)
 
     if not dry_run and not had_failures:
         _update_last_poll_at(resolved_supabase, poll_started_at)

@@ -373,6 +373,56 @@ def test_different_roles_at_same_company_create_separate_applications(monkeypatc
     }
 
 
+def test_similar_gtme_roles_at_same_company_create_separate_applications(
+    monkeypatch,
+) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "Clay",
+                "role": "GTME Ecosystem - GTME University Lead",
+                "stage": "Applied",
+                "confidence": 0.95,
+                "summary": "Application received",
+            },
+            {
+                "category": "application_event",
+                "company": "Clay",
+                "role": "GTME Ecosystem - GTME & AI Teacher",
+                "stage": "Applied",
+                "confidence": 0.95,
+                "summary": "Application received",
+            },
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"] = []
+
+    first = ingest.ingest_message(
+        base_message(gmail_message_id="clay-1", from_address="Careers <jobs@clay.com>"),
+        make_config(),
+        supabase,
+    )
+    second = ingest.ingest_message(
+        base_message(gmail_message_id="clay-2", from_address="Careers <jobs@clay.com>"),
+        make_config(),
+        supabase,
+    )
+
+    assert first.action == "application_event_create_orphan"
+    assert second.action == "application_event_create_orphan"
+    application_rows = [
+        row for row in supabase.tables["applications"] if row["kind"] == "application"
+    ]
+    assert len(application_rows) == 2
+    assert {row["role"] for row in application_rows} == {
+        "GTME Ecosystem - GTME University Lead",
+        "GTME Ecosystem - GTME & AI Teacher",
+    }
+
+
 def test_lifecycle_email_matches_existing_role_and_advances(monkeypatch) -> None:
     patch_classifier(
         monkeypatch,
@@ -409,6 +459,40 @@ def test_lifecycle_email_matches_existing_role_and_advances(monkeypatch) -> None
     assert result.advanced_stage is True
     assert len(supabase.tables["applications"]) == 1
     assert supabase.tables["applications"][0]["stage"] == "Interview"
+
+
+def test_lifecycle_email_matches_when_role_is_contained(monkeypatch) -> None:
+    patch_classifier(
+        monkeypatch,
+        [
+            {
+                "category": "application_event",
+                "company": "Acme",
+                "role": "Software Engineer",
+                "stage": "Rejected",
+                "confidence": 0.95,
+                "summary": "Rejection",
+            }
+        ],
+    )
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0].update(
+        {
+            "company": "Acme",
+            "normalized_company": "acme",
+            "company_domain": "acme.com",
+            "role": "Software Engineer, New Grad (AI)",
+            "stage": "Applied",
+        }
+    )
+
+    result = ingest.ingest_message(base_message(), make_config(), supabase)
+
+    assert result.action == "application_event_matched"
+    assert result.matched_application_id == "app-1"
+    assert result.advanced_stage is True
+    assert len(supabase.tables["applications"]) == 1
+    assert supabase.tables["applications"][0]["stage"] == "Rejected"
 
 
 def test_bare_role_email_falls_back_to_most_recent_company_match(monkeypatch) -> None:
@@ -637,3 +721,37 @@ def test_posting_backfill_does_nothing_without_match() -> None:
     application = supabase.tables["applications"][0]
     assert application["salary"] is None
     assert application["location"] is None
+
+
+def test_posting_backfill_never_overwrites_existing_values() -> None:
+    supabase = FakeSupabase()
+    supabase.tables["applications"][0].update(
+        {
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Analyst",
+            "salary": "$140k manual",
+            "location": None,
+            "tags": ["Manual"],
+        }
+    )
+    supabase.tables["job_postings"].append(
+        {
+            "id": "posting-1",
+            "company": "Acme",
+            "normalized_company": "acme",
+            "role": "Analyst",
+            "salary": "$120k to $150k",
+            "location": "Remote US",
+            "tags": ["Remote", "Full-time"],
+            "seen_at": "2026-06-01T00:00:00+00:00",
+        }
+    )
+
+    updated_count = ingest.backfill_application_posting_enrichment(supabase)
+
+    assert updated_count == 1
+    application = supabase.tables["applications"][0]
+    assert application["salary"] == "$140k manual"
+    assert application["location"] == "Remote US"
+    assert application["tags"] == ["Manual"]

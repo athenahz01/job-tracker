@@ -19,7 +19,7 @@ COMPANY_SUFFIXES = {
     "corp",
 }
 
-ROLE_MATCH_THRESHOLD = 0.62
+ROLE_MATCH_THRESHOLD = 0.80
 ROLE_PLACEHOLDER_PHRASES = (
     "thank you for applying",
     "thanks for applying",

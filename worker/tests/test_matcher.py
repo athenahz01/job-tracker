@@ -39,6 +39,29 @@ def test_match_application_requires_role_alignment_for_same_company() -> None:
     assert application is None
 
 
+def test_match_application_rejects_similar_prefix_roles() -> None:
+    application = match_application(
+        {
+            "from_address": "Careers <jobs@clay.com>",
+            "company": "Clay",
+            "role": "GTME Ecosystem - GTME & AI Teacher",
+        },
+        [
+            {
+                "id": "app-1",
+                "company": "Clay",
+                "normalized_company": "clay",
+                "company_domain": "clay.com",
+                "role": "GTME Ecosystem - GTME University Lead",
+                "last_activity": "2026-01-01T00:00:00+00:00",
+            }
+        ],
+        make_config(),
+    )
+
+    assert application is None
+
+
 def test_match_application_uses_fuzzy_role_match() -> None:
     application = match_application(
         {
@@ -53,6 +76,30 @@ def test_match_application_uses_fuzzy_role_match() -> None:
                 "normalized_company": "eliseai",
                 "company_domain": "eliseai.com",
                 "role": "Senior Product Manager",
+                "last_activity": "2026-01-01T00:00:00+00:00",
+            }
+        ],
+        make_config(),
+    )
+
+    assert application is not None
+    assert application["id"] == "app-1"
+
+
+def test_match_application_preserves_substring_role_match() -> None:
+    application = match_application(
+        {
+            "from_address": "Careers <jobs@acme.com>",
+            "company": "Acme",
+            "role": "Software Engineer",
+        },
+        [
+            {
+                "id": "app-1",
+                "company": "Acme",
+                "normalized_company": "acme",
+                "company_domain": "acme.com",
+                "role": "Software Engineer, New Grad (AI)",
                 "last_activity": "2026-01-01T00:00:00+00:00",
             }
         ],

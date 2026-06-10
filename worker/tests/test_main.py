@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sys
 from types import ModuleType
 
@@ -52,6 +53,29 @@ def test_poll_advances_sync_state_after_genuine_other(monkeypatch) -> None:
     assert [result.action for result in results] == ["ignored_other"]
     assert supabase.tables["sync_state"][0]["last_poll_at"] != original_last_poll_at
     assert supabase.tables["email_events"] == []
+
+
+def test_poll_logs_backfill_count(monkeypatch, caplog) -> None:
+    supabase = FakeSupabase()
+    _patch_gmail(monkeypatch)
+    monkeypatch.setattr(
+        ingest,
+        "classify_email",
+        lambda message, config: {
+            "category": "other",
+            "company": None,
+            "role": None,
+            "stage": None,
+            "confidence": 0.96,
+            "summary": "Personal mail",
+        },
+    )
+    monkeypatch.setattr(main, "backfill_application_posting_enrichment", lambda supabase: 0)
+
+    with caplog.at_level(logging.INFO, logger="src.main"):
+        main.poll_once(make_config(), supabase=supabase)
+
+    assert "backfilled posting data on 0 applications" in caplog.text
 
 
 def _patch_gmail(monkeypatch) -> None:
