@@ -3,7 +3,14 @@ importScripts("shared.js");
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (
     !message ||
-    !["SAVE_APPLICATION", "CHECK_FIT", "CACHE_POSTING"].includes(message.type)
+    ![
+      "SAVE_APPLICATION",
+      "CHECK_FIT",
+      "CACHE_POSTING",
+      "GET_PROFILE",
+      "DRAFT_ANSWER",
+      "SAVE_ANSWER"
+    ].includes(message.type)
   ) {
     return false;
   }
@@ -13,7 +20,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       ? checkFit(message.capture)
       : message.type === "CACHE_POSTING"
         ? cachePosting(message.posting)
-        : saveApplication(message.capture, message.source, Boolean(message.auto), message.stage);
+        : message.type === "GET_PROFILE"
+          ? getProfile()
+          : message.type === "DRAFT_ANSWER"
+            ? draftAnswer(message.payload)
+            : message.type === "SAVE_ANSWER"
+              ? saveAnswer(message.payload)
+              : saveApplication(message.capture, message.source, Boolean(message.auto), message.stage);
 
   action
     .then(sendResponse)
@@ -29,6 +42,155 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   return true;
 });
+
+async function getProfile() {
+  const shared = self.JobTrackerShared;
+  const settings = await shared.getSettings();
+  if (!shared.settingsAreReady(settings)) {
+    return {
+      ok: false,
+      reason: "settings",
+      message: "Open options and add the API URL and shared secret."
+    };
+  }
+
+  try {
+    const response = await fetch(`${settings.apiBaseUrl}/api/profile`, {
+      method: "GET",
+      headers: {
+        "x-extension-api-secret": settings.apiSecret
+      }
+    });
+    const data = await safeJson(response);
+    if (!response.ok || !data || data.ok === false) {
+      return {
+        ok: false,
+        reason: data && data.reason ? data.reason : "profile_error",
+        message: readableProfileError(response.status, data)
+      };
+    }
+
+    return {
+      ok: true,
+      profile: data.profile || null,
+      answers: Array.isArray(data.answers) ? data.answers : []
+    };
+  } catch {
+    return {
+      ok: false,
+      reason: "network",
+      message: "Could not reach the API. Check the URL and extension permissions."
+    };
+  }
+}
+
+async function draftAnswer(payload) {
+  const shared = self.JobTrackerShared;
+  const settings = await shared.getSettings();
+  if (!shared.settingsAreReady(settings)) {
+    return {
+      ok: false,
+      reason: "settings",
+      message: "Open options and add the API URL and shared secret."
+    };
+  }
+
+  const question = shared.trimText(payload && payload.question, 1000);
+  if (!question) {
+    return { ok: false, reason: "question_required", message: "Question is required." };
+  }
+
+  const body = {
+    question,
+    company: shared.trimText(payload && payload.company, 180) || null,
+    role: shared.trimText(payload && payload.role, 220) || null,
+    jobDescription: shared.trimText(payload && payload.jobDescription, 12000) || null
+  };
+
+  try {
+    const response = await fetch(`${settings.apiBaseUrl}/api/answer`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-extension-api-secret": settings.apiSecret
+      },
+      body: JSON.stringify(body)
+    });
+    const data = await safeJson(response);
+    if (!response.ok || !data || data.ok === false) {
+      return {
+        ok: false,
+        reason: data && data.reason ? data.reason : "answer_error",
+        message: readableAnswerError(response.status, data)
+      };
+    }
+
+    return {
+      ok: true,
+      answer: typeof data.answer === "string" ? data.answer : ""
+    };
+  } catch {
+    return {
+      ok: false,
+      reason: "network",
+      message: "Could not reach the API. Check the URL and extension permissions."
+    };
+  }
+}
+
+async function saveAnswer(payload) {
+  const shared = self.JobTrackerShared;
+  const settings = await shared.getSettings();
+  if (!shared.settingsAreReady(settings)) {
+    return {
+      ok: false,
+      reason: "settings",
+      message: "Open options and add the API URL and shared secret."
+    };
+  }
+
+  const question = shared.trimText(payload && payload.question, 1000);
+  const answer = shared.trimText(payload && payload.answer, 8000);
+  if (!question || !answer) {
+    return {
+      ok: false,
+      reason: "answer_required",
+      message: "Question and answer are required."
+    };
+  }
+
+  try {
+    const response = await fetch(`${settings.apiBaseUrl}/api/answer`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-extension-api-secret": settings.apiSecret
+      },
+      body: JSON.stringify({
+        mode: "save",
+        question,
+        answer,
+        tags: shared.parseTags(payload && payload.tags)
+      })
+    });
+    const data = await safeJson(response);
+    if (!response.ok || !data || data.ok === false) {
+      return {
+        ok: false,
+        reason: data && data.reason ? data.reason : "answer_error",
+        message: readableAnswerError(response.status, data)
+      };
+    }
+
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      reason: "network",
+      message: "Could not reach the API. Check the URL and extension permissions."
+    };
+  }
+}
 
 async function cachePosting(posting) {
   const shared = self.JobTrackerShared;
@@ -246,4 +408,24 @@ function readableScoreError(status, data) {
     return "Company is required before checking fit.";
   }
   return "Could not check fit for this job.";
+}
+
+function readableProfileError(status, data) {
+  if (status === 401) {
+    return "The shared secret did not match.";
+  }
+  if (data && data.reason === "profile_error") {
+    return "Could not load your autofill profile.";
+  }
+  return "Could not load your autofill profile.";
+}
+
+function readableAnswerError(status, data) {
+  if (status === 401) {
+    return "The shared secret did not match.";
+  }
+  if (data && data.reason === "question_required") {
+    return "Question is required before drafting an answer.";
+  }
+  return "Could not draft an answer for this question.";
 }

@@ -2,10 +2,12 @@
   const shared = window.JobTrackerShared;
   const saveButton = document.getElementById("save-current");
   const checkFitButton = document.getElementById("check-fit");
+  const autofillButton = document.getElementById("autofill-application");
   const optionsButton = document.getElementById("open-options");
   const settingsMessage = document.getElementById("settings-message");
   const status = document.getElementById("status");
   const fitResult = document.getElementById("fit-result");
+  const autofillResult = document.getElementById("autofill-result");
   const manualForm = document.getElementById("manual-form");
   const companyInput = document.getElementById("company");
   const roleInput = document.getElementById("role");
@@ -25,9 +27,11 @@
     settingsMessage.hidden = ready;
     saveButton.disabled = !ready;
     checkFitButton.disabled = !ready;
+    autofillButton.disabled = !ready;
 
     saveButton.addEventListener("click", handleSaveClick);
     checkFitButton.addEventListener("click", handleCheckFitClick);
+    autofillButton.addEventListener("click", handleAutofillClick);
     optionsButton.addEventListener("click", () => chrome.runtime.openOptionsPage());
     manualForm.addEventListener("submit", handleManualSubmit);
   }
@@ -98,6 +102,45 @@
     }
   }
 
+  async function handleAutofillClick() {
+    clearStatus();
+    clearAutofillResult();
+    autofillButton.disabled = true;
+
+    try {
+      setStatus("Loading autofill profile...", "");
+      const profileResponse = await chrome.runtime.sendMessage({ type: "GET_PROFILE" });
+      if (!profileResponse || !profileResponse.ok) {
+        setStatus(
+          profileResponse && profileResponse.message
+            ? profileResponse.message
+            : "Could not load your autofill profile.",
+          "error"
+        );
+        return;
+      }
+
+      let capture = {};
+      try {
+        capture = await scrapeActiveTab();
+      } catch {
+        capture = {};
+      }
+      setStatus("Filling confident matches...", "");
+      const result = await applyAutofillToActiveTab({
+        profile: profileResponse.profile,
+        answers: profileResponse.answers
+      });
+
+      renderAutofillResult(result, capture);
+      setStatus("Autofill complete. Review before submitting.", "success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not autofill this page.", "error");
+    } finally {
+      autofillButton.disabled = false;
+    }
+  }
+
   async function handleManualSubmit(event) {
     event.preventDefault();
     if (!pendingCapture) {
@@ -116,11 +159,7 @@
   }
 
   async function scrapeActiveTab() {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !tab.id) {
-      throw new Error("No active tab found.");
-    }
-
+    const tab = await getActiveTab();
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
       files: ["shared.js", "scraper.js"]
@@ -136,6 +175,56 @@
     }
 
     return result.result;
+  }
+
+  async function applyAutofillToActiveTab(payload) {
+    const tab = await getActiveTab();
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["autofill.js"]
+    });
+
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (autofillPayload) =>
+        window.JobTrackerAutofill.applyAutofill(
+          autofillPayload.profile,
+          autofillPayload.answers
+        ),
+      args: [payload]
+    });
+
+    if (!result || !result.result) {
+      throw new Error("Could not autofill this page.");
+    }
+
+    return result.result;
+  }
+
+  async function fillAnswerInActiveTab(questionId, answer) {
+    const tab = await getActiveTab();
+
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      files: ["autofill.js"]
+    });
+
+    const [result] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: (id, value) => window.JobTrackerAutofill.fillQuestionAnswer(id, value),
+      args: [questionId, answer]
+    });
+
+    return result && result.result;
+  }
+
+  async function getActiveTab() {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || !tab.id) {
+      throw new Error("No active tab found.");
+    }
+    return tab;
   }
 
   async function postCapture(capture, source, stage) {
@@ -224,6 +313,178 @@
   function clearFitResult() {
     fitResult.hidden = true;
     fitResult.innerHTML = "";
+  }
+
+  function renderAutofillResult(result, capture) {
+    autofillResult.hidden = false;
+    autofillResult.innerHTML = "";
+
+    const header = document.createElement("div");
+    header.className = "autofill-header";
+    const title = document.createElement("strong");
+    title.textContent = "Autofill";
+    header.append(title);
+    const count = document.createElement("span");
+    const totalFilled =
+      safeLength(result && result.fieldsFilled) + safeLength(result && result.answersFilled);
+    count.textContent = `${totalFilled} filled`;
+    header.append(count);
+    autofillResult.append(header);
+
+    if (safeLength(result && result.fieldsFilled)) {
+      autofillResult.append(
+        resultSection(
+          "Profile fields",
+          result.fieldsFilled.map((item) => `${item.label}${item.target ? `: ${item.target}` : ""}`)
+        )
+      );
+    }
+
+    if (safeLength(result && result.answersFilled)) {
+      autofillResult.append(
+        resultSection(
+          "Saved answers",
+          result.answersFilled.map((item) => item.matchedQuestion || item.question)
+        )
+      );
+    }
+
+    if (safeLength(result && result.openQuestions)) {
+      const section = document.createElement("div");
+      section.className = "autofill-section";
+      const heading = document.createElement("strong");
+      heading.textContent = "Open questions";
+      section.append(heading);
+
+      for (const question of result.openQuestions.slice(0, 5)) {
+        section.append(renderOpenQuestion(question, capture));
+      }
+      autofillResult.append(section);
+    }
+
+    const reminder = document.createElement("p");
+    reminder.textContent = "Review every field before submitting. Nothing was submitted.";
+    autofillResult.append(reminder);
+  }
+
+  function renderOpenQuestion(question, capture) {
+    const wrap = document.createElement("div");
+    wrap.className = "autofill-question";
+
+    const text = document.createElement("p");
+    text.textContent = question.question;
+    wrap.append(text);
+
+    const button = document.createElement("button");
+    button.className = "secondary";
+    button.type = "button";
+    button.textContent = "AI answer";
+    button.addEventListener("click", () => handleDraftAnswer(question, capture, wrap, button));
+    wrap.append(button);
+
+    return wrap;
+  }
+
+  async function handleDraftAnswer(question, capture, wrap, button) {
+    button.disabled = true;
+    setStatus("Drafting answer...", "");
+
+    try {
+      const response = await chrome.runtime.sendMessage({
+        type: "DRAFT_ANSWER",
+        payload: {
+          question: question.question,
+          company: capture && capture.company,
+          role: capture && capture.role,
+          jobDescription: capture && capture.notes
+        }
+      });
+
+      if (!response || !response.ok || !response.answer) {
+        setStatus(
+          response && response.message ? response.message : "Could not draft an answer.",
+          "error"
+        );
+        return;
+      }
+
+      const fillResult = await fillAnswerInActiveTab(question.id, response.answer);
+      if (!fillResult || !fillResult.ok) {
+        setStatus("Answer drafted, but the field was already changed.", "error");
+        return;
+      }
+
+      renderDraftPreview(wrap, question.question, response.answer);
+      setStatus("Draft filled. Review before submitting.", "success");
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : "Could not draft an answer.", "error");
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  function renderDraftPreview(wrap, question, answer) {
+    const existing = wrap.querySelector(".draft-preview");
+    if (existing) {
+      existing.remove();
+    }
+
+    const preview = document.createElement("div");
+    preview.className = "draft-preview";
+
+    const text = document.createElement("p");
+    text.textContent = answer;
+    preview.append(text);
+
+    const saveButton = document.createElement("button");
+    saveButton.className = "secondary";
+    saveButton.type = "button";
+    saveButton.textContent = "Save to answer bank";
+    saveButton.addEventListener("click", async () => {
+      saveButton.disabled = true;
+      const response = await chrome.runtime.sendMessage({
+        type: "SAVE_ANSWER",
+        payload: {
+          question,
+          answer,
+          tags: ["AI draft"]
+        }
+      });
+      setStatus(
+        response && response.ok ? "Answer saved." : response && response.message ? response.message : "Could not save answer.",
+        response && response.ok ? "success" : "error"
+      );
+      saveButton.disabled = false;
+    });
+    preview.append(saveButton);
+
+    wrap.append(preview);
+  }
+
+  function resultSection(title, items) {
+    const section = document.createElement("div");
+    section.className = "autofill-section";
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    section.append(heading);
+
+    const list = document.createElement("ul");
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      list.append(li);
+    }
+    section.append(list);
+    return section;
+  }
+
+  function clearAutofillResult() {
+    autofillResult.hidden = true;
+    autofillResult.innerHTML = "";
+  }
+
+  function safeLength(value) {
+    return Array.isArray(value) ? value.length : 0;
   }
 
   function fitClass(score) {

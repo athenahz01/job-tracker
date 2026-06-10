@@ -26,6 +26,30 @@ type FitPromptInput = {
   resumeText: string;
 };
 
+export type ScreenerAnswerProfile = {
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  website_url: string | null;
+  work_authorization: string | null;
+  requires_sponsorship: boolean | null;
+  years_experience: string | null;
+  current_title: string | null;
+};
+
+type ScreenerAnswerPromptInput = {
+  question: string;
+  company: string | null;
+  role: string | null;
+  jobDescription: string | null;
+  resumeText: string | null;
+  profile: ScreenerAnswerProfile | null;
+};
+
 export const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5";
 
 export const FIT_SCORING_SYSTEM_PROMPT =
@@ -40,6 +64,9 @@ export const TAILORING_SYSTEM_PROMPT =
 export const TAILORING_OUTPUT_SHAPE =
   '{"ai_tailored_bullets":[],"ai_cover_letter":""}';
 
+export const SCREENER_ANSWER_SYSTEM_PROMPT =
+  "You draft concise job application screener answers. Write in first person. Be specific, honest, and grounded only in the supplied profile and resume.";
+
 export async function scoreFitWithClaude(input: FitPromptInput): Promise<unknown> {
   return requestClaudeJson({
     system: FIT_SCORING_SYSTEM_PROMPT,
@@ -53,6 +80,17 @@ export async function tailorApplicationWithClaude(input: FitPromptInput): Promis
     system: TAILORING_SYSTEM_PROMPT,
     prompt: buildTailoringPrompt(input),
     maxTokens: 1600
+  });
+}
+
+export async function draftScreenerAnswerWithClaude(
+  input: ScreenerAnswerPromptInput
+): Promise<string> {
+  return requestClaudeText({
+    system: SCREENER_ANSWER_SYSTEM_PROMPT,
+    prompt: buildScreenerAnswerPrompt(input),
+    maxTokens: 500,
+    temperature: 0.3
   });
 }
 
@@ -94,6 +132,55 @@ export function buildTailoringPrompt(input: FitPromptInput) {
     "",
     "Master resume:",
     input.resumeText
+  ].join("\n");
+}
+
+export function buildScreenerAnswerPrompt(input: ScreenerAnswerPromptInput) {
+  return [
+    "Draft a polished answer to the application screener question below.",
+    "Use first person and answer directly.",
+    "Keep the response concise, roughly 80 to 140 words unless the question clearly asks for something shorter.",
+    "Do not invent employment history, credentials, work authorization, sponsorship status, salary needs, or relocation flexibility.",
+    "If the available facts do not support a direct answer, say so plainly and offer a careful truthful framing.",
+    "",
+    `Question: ${input.question}`,
+    "",
+    `Company: ${input.company || "Not set"}`,
+    `Role: ${input.role || "Not set"}`,
+    "",
+    "Application profile:",
+    formatScreenerProfile(input.profile),
+    "",
+    "Job posting notes:",
+    input.jobDescription || "Not set",
+    "",
+    "Master resume:",
+    input.resumeText || "Not set"
+  ].join("\n");
+}
+
+function formatScreenerProfile(profile: ScreenerAnswerProfile | null) {
+  if (!profile) {
+    return "Not set";
+  }
+
+  return [
+    `Name: ${profile.full_name || "Not set"}`,
+    `Location: ${profile.location || "Not set"}`,
+    `Current title: ${profile.current_title || "Not set"}`,
+    `Years of experience: ${profile.years_experience || "Not set"}`,
+    `Work authorization: ${profile.work_authorization || "Not set"}`,
+    `Requires sponsorship: ${
+      profile.requires_sponsorship === null
+        ? "Not set"
+        : profile.requires_sponsorship
+          ? "Yes"
+          : "No"
+    }`,
+    `LinkedIn: ${profile.linkedin_url || "Not set"}`,
+    `GitHub: ${profile.github_url || "Not set"}`,
+    `Portfolio: ${profile.portfolio_url || "Not set"}`,
+    `Website: ${profile.website_url || "Not set"}`
   ].join("\n");
 }
 

@@ -42,7 +42,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const state = parseTableState(params);
   const status = readSingle(params.status);
-  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profile, insights] =
+  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profileData, insights] =
     await Promise.all([
       getDashboardData(),
       getApplicationFlowData(),
@@ -128,7 +128,12 @@ export default async function Home({ searchParams }: HomeProps) {
         </>
       ) : null}
 
-      {state.view === "profile" ? <ProfileView profile={profile} /> : null}
+      {state.view === "profile" ? (
+        <ProfileView
+          profile={profileData?.profile ?? null}
+          answers={profileData?.answers ?? []}
+        />
+      ) : null}
     </main>
   );
 }
@@ -318,7 +323,13 @@ function statusMessage(status: string) {
     contact_invalid: "That contact request was not valid.",
     contact_error: "The contact could not be saved.",
     profile_saved: "Master resume saved.",
-    profile_error: "The master resume could not be saved."
+    profile_error: "The master resume could not be saved.",
+    application_profile_saved: "Application details saved.",
+    application_profile_error: "Application details could not be saved.",
+    answer_saved: "Answer saved.",
+    answer_deleted: "Answer deleted.",
+    answer_invalid: "That answer request was not valid.",
+    answer_error: "The answer could not be saved."
   };
 
   return messages[status] ?? "Done.";

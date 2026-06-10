@@ -239,6 +239,104 @@ export async function saveProfileAction(formData: FormData) {
   redirect(`/?view=profile&status=${encodeURIComponent(status)}`);
 }
 
+export async function saveApplicationProfileAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("profile").upsert(
+    {
+      id: 1,
+      full_name: cleanOptionalText(formData.get("fullName"), 180),
+      email: cleanOptionalText(formData.get("email"), 240),
+      phone: cleanOptionalText(formData.get("phone"), 80),
+      location: cleanOptionalText(formData.get("location"), 180),
+      linkedin_url: cleanOptionalText(formData.get("linkedinUrl"), 500),
+      github_url: cleanOptionalText(formData.get("githubUrl"), 500),
+      portfolio_url: cleanOptionalText(formData.get("portfolioUrl"), 500),
+      website_url: cleanOptionalText(formData.get("websiteUrl"), 500),
+      work_authorization: cleanOptionalText(formData.get("workAuthorization"), 500),
+      requires_sponsorship: formData.get("requiresSponsorship") === "on",
+      years_experience: cleanOptionalText(formData.get("yearsExperience"), 80),
+      current_title: cleanOptionalText(formData.get("currentTitle"), 180),
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("Could not save application profile.");
+    revalidatePath("/");
+    redirect("/?view=profile&status=application_profile_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=application_profile_saved");
+}
+
+export async function createScreenerAnswerAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const payload = readScreenerAnswerPayload(formData);
+  if (!payload.question || !payload.answer) {
+    redirect("/?view=profile&status=answer_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("screener_answers").insert(payload);
+
+  if (error) {
+    console.error("Could not create screener answer.");
+    redirect("/?view=profile&status=answer_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=answer_saved");
+}
+
+export async function updateScreenerAnswerAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const answerId = readString(formData.get("answerId"));
+  const payload = readScreenerAnswerPayload(formData);
+  if (!isUuid(answerId) || !payload.question || !payload.answer) {
+    redirect("/?view=profile&status=answer_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("screener_answers")
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", answerId);
+
+  if (error) {
+    console.error("Could not update screener answer.");
+    redirect("/?view=profile&status=answer_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=answer_saved");
+}
+
+export async function deleteScreenerAnswerAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const answerId = readString(formData.get("answerId"));
+  if (!isUuid(answerId)) {
+    redirect("/?view=profile&status=answer_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("screener_answers").delete().eq("id", answerId);
+
+  if (error) {
+    console.error("Could not delete screener answer.");
+    redirect("/?view=profile&status=answer_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=answer_deleted");
+}
+
 export async function scoreApplicationFitAction(formData: FormData) {
   const id = readString(formData.get("applicationId"));
   const status = await scoreApplicationFit(id);
@@ -374,6 +472,14 @@ function readContactPayload(formData: FormData) {
     notes: cleanOptionalText(formData.get("notes"), 4000),
     last_contacted: cleanOptionalDate(formData.get("lastContacted")),
     next_follow_up: cleanOptionalDate(formData.get("nextFollowUp"))
+  };
+}
+
+function readScreenerAnswerPayload(formData: FormData) {
+  return {
+    question: cleanRequiredText(formData.get("question"), 1000),
+    answer: cleanRequiredText(formData.get("answer"), 8000),
+    tags: parseTags(formData.get("tags"))
   };
 }
 

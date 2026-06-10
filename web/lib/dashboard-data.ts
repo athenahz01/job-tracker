@@ -133,7 +133,33 @@ export type FollowUpItem = {
 export type ProfileRow = {
   id: number;
   resume_text: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  location: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
+  portfolio_url: string | null;
+  website_url: string | null;
+  work_authorization: string | null;
+  requires_sponsorship: boolean | null;
+  years_experience: string | null;
+  current_title: string | null;
   updated_at: string;
+};
+
+export type ScreenerAnswerRow = {
+  id: string;
+  question: string;
+  answer: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type ProfileData = {
+  profile: ProfileRow | null;
+  answers: ScreenerAnswerRow[];
 };
 
 export async function getDashboardData() {
@@ -196,19 +222,46 @@ export async function getInsightsData(): Promise<InsightsData> {
   return buildInsightsData(applications, (eventsResponse.data ?? []) as EmailEventRow[]);
 }
 
-export async function getProfileData(): Promise<ProfileRow | null> {
+export async function getProfileData(): Promise<ProfileData> {
   const supabase = createSupabaseServerClient();
-  const response = await supabase
-    .from("profile")
-    .select("id, resume_text, updated_at")
-    .eq("id", 1)
-    .maybeSingle();
+  const [profileResponse, answersResponse] = await Promise.all([
+    supabase
+      .from("profile")
+      .select(
+        [
+          "id",
+          "resume_text",
+          "full_name",
+          "email",
+          "phone",
+          "location",
+          "linkedin_url",
+          "github_url",
+          "portfolio_url",
+          "website_url",
+          "work_authorization",
+          "requires_sponsorship",
+          "years_experience",
+          "current_title",
+          "updated_at"
+        ].join(", ")
+      )
+      .eq("id", 1)
+      .maybeSingle(),
+    supabase
+      .from("screener_answers")
+      .select("id, question, answer, tags, created_at, updated_at")
+      .order("updated_at", { ascending: false })
+  ]);
 
-  if (response.error) {
+  if (profileResponse.error || answersResponse.error) {
     throw new Error("Could not load profile.");
   }
 
-  return (response.data as ProfileRow | null) ?? null;
+  return {
+    profile: (profileResponse.data as ProfileRow | null) ?? null,
+    answers: normalizeScreenerAnswers(answersResponse.data)
+  };
 }
 
 export async function getApplicationFlowData(): Promise<ApplicationFlowData> {
@@ -382,6 +435,13 @@ function normalizeApplications(rows: unknown): ApplicationRow[] {
       : [],
     ai_cover_letter: row.ai_cover_letter ?? null,
     tailored_at: row.tailored_at ?? null
+  }));
+}
+
+function normalizeScreenerAnswers(rows: unknown): ScreenerAnswerRow[] {
+  return ((rows ?? []) as ScreenerAnswerRow[]).map((row) => ({
+    ...row,
+    tags: Array.isArray(row.tags) ? row.tags : []
   }));
 }
 

@@ -24,10 +24,11 @@ const mockSupabase = vi.hoisted(() => {
     profile: {
       id: 1,
       resume_text: "Built TypeScript dashboards with SQL and analytics workflows."
-    } as { id: number; resume_text: string | null } | null,
+    } as Record<string, unknown> | null,
     inserts: [] as TableWrite[],
     upserts: [] as TableWrite[],
-    updates: [] as TableWrite[]
+    updates: [] as TableWrite[],
+    deletes: [] as TableWrite[]
   };
 
   function createSelectBuilder(table: string) {
@@ -48,12 +49,27 @@ const mockSupabase = vi.hoisted(() => {
 
   function createUpdateBuilder(table: string, value: Record<string, unknown>) {
     return {
-      eq: () => ({
-        is: async () => {
+      eq: () => {
+        if (table !== "applications") {
           state.updates.push({ table, value });
           return { data: null, error: null };
         }
-      })
+        return {
+          is: async () => {
+            state.updates.push({ table, value });
+            return { data: null, error: null };
+          }
+        };
+      }
+    };
+  }
+
+  function createDeleteBuilder(table: string) {
+    return {
+      eq: (_column: string, value: unknown) => {
+        state.deletes.push({ table, value: { id: value } });
+        return { data: null, error: null };
+      }
     };
   }
 
@@ -69,13 +85,15 @@ const mockSupabase = vi.hoisted(() => {
           state.upserts.push({ table, value, options });
           if (table === "profile") {
             state.profile = {
-              id: Number(value.id),
-              resume_text: (value.resume_text as string | null) ?? null
+              ...(state.profile ?? {}),
+              ...value,
+              id: Number(value.id)
             };
           }
           return { data: value, error: null };
         },
         update: (value: Record<string, unknown>) => createUpdateBuilder(table, value),
+        delete: () => createDeleteBuilder(table),
         select: () => createSelectBuilder(table)
       })
     })
@@ -106,14 +124,21 @@ vi.mock("next/navigation", () => ({
 
 import {
   createContactAction,
+  createScreenerAnswerAction,
+  deleteScreenerAnswerAction,
   renameCompanyAction,
+  saveApplicationProfileAction,
+  updateScreenerAnswerAction,
   updateApplicationRoleAction
 } from "../lib/dashboard-actions";
+import { requireDashboardAccess } from "../lib/dashboard-auth";
 import {
   saveProfileResume,
   scoreApplicationFit,
   tailorApplication
 } from "../lib/resume-fit";
+
+const mockedRequireDashboardAccess = vi.mocked(requireDashboardAccess);
 
 describe("dashboard actions", () => {
   beforeEach(() => {
@@ -130,6 +155,8 @@ describe("dashboard actions", () => {
     mockSupabase.state.inserts = [];
     mockSupabase.state.upserts = [];
     mockSupabase.state.updates = [];
+    mockSupabase.state.deletes = [];
+    mockedRequireDashboardAccess.mockClear();
     mockAnthropic.scoreFitWithClaude.mockReset();
     mockAnthropic.tailorApplicationWithClaude.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -266,10 +293,123 @@ describe("dashboard actions", () => {
         options: { onConflict: "id" }
       }
     ]);
-    expect(mockSupabase.state.profile).toEqual({
+    expect(mockSupabase.state.profile).toEqual(expect.objectContaining({
       id: 1,
       resume_text: "Second resume"
+    }));
+  });
+
+  it("upserts application profile details through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("fullName", " Ada Lovelace ");
+    formData.set("email", " ada@example.com ");
+    formData.set("phone", "555-0100");
+    formData.set("location", "New York, NY");
+    formData.set("linkedinUrl", "https://linkedin.com/in/ada");
+    formData.set("githubUrl", "https://github.com/ada");
+    formData.set("portfolioUrl", "https://ada.example.com/work");
+    formData.set("websiteUrl", "https://ada.example.com");
+    formData.set("workAuthorization", "Authorized to work in the United States");
+    formData.set("requiresSponsorship", "on");
+    formData.set("yearsExperience", "7");
+    formData.set("currentTitle", "Product Engineer");
+
+    await expect(saveApplicationProfileAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=application_profile_saved"
     });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.upserts).toEqual([
+      {
+        table: "profile",
+        value: expect.objectContaining({
+          id: 1,
+          full_name: "Ada Lovelace",
+          email: "ada@example.com",
+          requires_sponsorship: true,
+          years_experience: "7",
+          current_title: "Product Engineer"
+        }),
+        options: { onConflict: "id" }
+      }
+    ]);
+  });
+
+  it("creates answer bank entries through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("question", " Why this company? ");
+    formData.set("answer", " I like the product and the customer problem. ");
+    formData.set("tags", "motivation, company, motivation");
+
+    await expect(createScreenerAnswerAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=answer_saved"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.inserts).toEqual([
+      {
+        table: "screener_answers",
+        value: {
+          question: "Why this company?",
+          answer: "I like the product and the customer problem.",
+          tags: ["motivation", "company"]
+        }
+      }
+    ]);
+  });
+
+  it("rejects invalid answer bank creates", async () => {
+    const formData = new FormData();
+    formData.set("answer", "Missing question.");
+
+    await expect(createScreenerAnswerAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=answer_invalid"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.inserts).toEqual([]);
+  });
+
+  it("updates answer bank entries through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("answerId", "00000000-0000-4000-8000-000000000002");
+    formData.set("question", "Why are you interested?");
+    formData.set("answer", "The work matches my product analytics background.");
+    formData.set("tags", "motivation");
+
+    await expect(updateScreenerAnswerAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=answer_saved"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "screener_answers",
+        value: expect.objectContaining({
+          question: "Why are you interested?",
+          answer: "The work matches my product analytics background.",
+          tags: ["motivation"],
+          updated_at: expect.any(String)
+        })
+      }
+    ]);
+  });
+
+  it("deletes answer bank entries through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("answerId", "00000000-0000-4000-8000-000000000002");
+
+    await expect(deleteScreenerAnswerAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=answer_deleted"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.deletes).toEqual([
+      {
+        table: "screener_answers",
+        value: { id: "00000000-0000-4000-8000-000000000002" }
+      }
+    ]);
   });
 
   it("stores tailoring bullets and a cover letter draft", async () => {
