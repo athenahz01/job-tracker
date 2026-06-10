@@ -7,8 +7,8 @@
   --text: #1a2421;
   --muted: #6b746f;
   --faint: #8a9089;
-  --line: #e4e1d8;
-  --line-strong: #cfd4cd;
+  --line: #ddd8cb;
+  --line-strong: #c7ccc3;
   --accent: #1f6f67;
   --accent-dark: #15433f;
   --accent-bright: #2f8f80;
@@ -19,8 +19,8 @@
   --danger-bg: #f7e6e0;
   --success: #2f6b3e;
   --success-bg: #e8f4ea;
-  --shadow: 0 1px 2px rgba(26, 36, 33, 0.04);
-  --shadow-soft: 0 1px 2px rgba(26, 36, 33, 0.03);
+  --shadow: 0 2px 4px rgba(26, 36, 33, 0.05), 0 6px 16px rgba(26, 36, 33, 0.05);
+  --shadow-soft: 0 1px 3px rgba(26, 36, 33, 0.05);
   --focus: 0 0 0 3px rgba(31, 111, 103, 0.22);
   --radius-sm: 9px;
   --radius-md: 12px;
@@ -324,7 +324,7 @@ tr[tabindex]:focus-visible {
   grid-auto-columns: minmax(120px, 1fr);
   grid-auto-flow: column;
   align-items: end;
-  min-height: 270px;
+  min-height: 200px;
   gap: 16px;
   overflow-x: auto;
   border-bottom: 0.5px solid var(--line-strong);
@@ -334,7 +334,7 @@ tr[tabindex]:focus-visible {
 .flow-band-group {
   display: grid;
   align-items: end;
-  min-height: 260px;
+  min-height: 190px;
   gap: 8px;
 }
 
