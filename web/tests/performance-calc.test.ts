@@ -117,9 +117,85 @@ describe("performance calculations", () => {
     expect(resumeGroup.medianDaysDisplay).toBe("5d");
   });
 
+  it("counts and ranks recurring skill gaps across roles", () => {
+    const data = buildPerformanceData(
+      [
+        application({
+          id: "python-a",
+          missing_keywords: ["Python automation"],
+          requirement_matches: [
+            {
+              requirement: "Python automation",
+              status: "partial",
+              evidence: "Resume does not show Python automation."
+            }
+          ]
+        }),
+        application({
+          id: "python-b",
+          requirement_matches: [
+            {
+              requirement: "Python automation",
+              status: "missing",
+              evidence: "Python is absent."
+            }
+          ]
+        }),
+        application({
+          id: "aws",
+          missing_keywords: ["AWS"]
+        }),
+        application({
+          id: "both",
+          missing_keywords: ["AWS", "Python automation!"]
+        }),
+        application({
+          id: "saved-gap",
+          stage: "Saved",
+          missing_keywords: ["Python automation"]
+        })
+      ],
+      []
+    );
+
+    expect(data.skillGaps[0]).toMatchObject({
+      key: "python automation",
+      label: "Python automation",
+      count: 4
+    });
+    expect(data.skillGaps[1]).toMatchObject({
+      key: "aws",
+      label: "AWS",
+      count: 2
+    });
+  });
+
+  it("returns an empty skill gap list without scored gap data", () => {
+    const empty = buildPerformanceData([], []);
+    expect(empty.skillGaps).toEqual([]);
+
+    const metOnly = buildPerformanceData(
+      [
+        application({
+          id: "met",
+          requirement_matches: [
+            {
+              requirement: "SQL",
+              status: "met",
+              evidence: "Resume supports SQL."
+            }
+          ]
+        })
+      ],
+      []
+    );
+    expect(metOnly.skillGaps).toEqual([]);
+  });
+
   it("returns dashes for zero denominators and does not crown tiny samples", () => {
     const empty = buildPerformanceData([], []);
     expect(empty.totalApplied).toBe(0);
+    expect(empty.skillGaps).toEqual([]);
     expect(empty.breakdowns.every((breakdown) => breakdown.groups.length === 0)).toBe(true);
     expect(empty.summary.resumeVersion).toBe(
       "No resume version has enough applied roles yet to call a winner."

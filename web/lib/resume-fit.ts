@@ -2,8 +2,10 @@ import "server-only";
 
 import { requireDashboardAccess } from "./dashboard-auth";
 import {
+  analyzeRequirementsWithClaude,
   scoreFitWithClaude,
-  tailorApplicationWithClaude
+  tailorApplicationWithClaude,
+  tailorResumeVariantWithClaude
 } from "./anthropic";
 import { createSupabaseServerClient } from "./supabase";
 
@@ -37,9 +39,27 @@ type TailoringResult = {
   ai_cover_letter: string;
 };
 
+export type RequirementMatchStatus = "met" | "partial" | "missing";
+
+export type RequirementMatch = {
+  requirement: string;
+  status: RequirementMatchStatus;
+  evidence: string;
+};
+
 export type ProfileSaveStatus = "profile_saved" | "profile_error";
 export type FitScoreStatus = "fit_scored" | "resume_missing" | "fit_error" | "invalid";
 export type TailoringStatus = "tailor_saved" | "resume_missing" | "tailor_error" | "invalid";
+export type RequirementScoreStatus =
+  | "requirements_saved"
+  | "resume_missing"
+  | "requirements_error"
+  | "invalid";
+export type TailoredResumeStatus =
+  | "tailored_resume_saved"
+  | "resume_missing"
+  | "tailored_resume_error"
+  | "invalid";
 
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -180,6 +200,118 @@ export async function tailorApplication(applicationId: string): Promise<Tailorin
   return "tailor_saved";
 }
 
+export async function scoreApplicationRequirements(
+  applicationId: string
+): Promise<RequirementScoreStatus> {
+  await requireDashboardAccess();
+
+  if (!isUuid(applicationId)) {
+    return "invalid";
+  }
+
+  const supabase = createSupabaseServerClient();
+  const application = await loadApplicationForAi(supabase, applicationId);
+  const profile = await loadProfile(supabase);
+
+  if (!application) {
+    return "requirements_error";
+  }
+
+  const resumeText = cleanLongText(profile?.resume_text ?? null, 200000);
+  if (!resumeText) {
+    return "resume_missing";
+  }
+
+  let matches: RequirementMatch[] | null = null;
+  try {
+    const result = await analyzeRequirementsWithClaude({
+      company: application.company,
+      role: application.role,
+      jobDescription: application.notes,
+      resumeText
+    });
+    matches = normalizeRequirementMatches(result);
+  } catch (error) {
+    console.error("Could not score application requirements.", error);
+  }
+
+  if (!matches) {
+    return "requirements_error";
+  }
+
+  const { error } = await supabase
+    .from("applications")
+    .update({
+      requirement_matches: matches,
+      requirements_scored_at: new Date().toISOString()
+    })
+    .eq("id", applicationId)
+    .is("merged_into_id", null);
+
+  if (error) {
+    console.error("Could not store requirement matches.");
+    return "requirements_error";
+  }
+
+  return "requirements_saved";
+}
+
+export async function generateTailoredResumeVariant(
+  applicationId: string
+): Promise<TailoredResumeStatus> {
+  await requireDashboardAccess();
+
+  if (!isUuid(applicationId)) {
+    return "invalid";
+  }
+
+  const supabase = createSupabaseServerClient();
+  const application = await loadApplicationForAi(supabase, applicationId);
+  const profile = await loadProfile(supabase);
+
+  if (!application) {
+    return "tailored_resume_error";
+  }
+
+  const resumeText = cleanLongText(profile?.resume_text ?? null, 200000);
+  if (!resumeText) {
+    return "resume_missing";
+  }
+
+  let tailoredResume: string | null = null;
+  try {
+    const result = await tailorResumeVariantWithClaude({
+      company: application.company,
+      role: application.role,
+      jobDescription: application.notes,
+      resumeText
+    });
+    tailoredResume = cleanLongText(result, 200000);
+  } catch (error) {
+    console.error("Could not generate tailored resume variant.", error);
+  }
+
+  if (!tailoredResume) {
+    return "tailored_resume_error";
+  }
+
+  const { error } = await supabase
+    .from("applications")
+    .update({
+      ai_tailored_resume: tailoredResume,
+      tailored_resume_at: new Date().toISOString()
+    })
+    .eq("id", applicationId)
+    .is("merged_into_id", null);
+
+  if (error) {
+    console.error("Could not store tailored resume variant.");
+    return "tailored_resume_error";
+  }
+
+  return "tailored_resume_saved";
+}
+
 export function normalizeFitResult(value: unknown): FitResult | null {
   if (!isRecord(value) || !Array.isArray(value.missing_keywords)) {
     return null;
@@ -212,6 +344,50 @@ export function normalizeTailoringResult(value: unknown): TailoringResult | null
   };
 
   return result.ai_tailored_bullets.length || result.ai_cover_letter ? result : null;
+}
+
+export function normalizeRequirementMatches(value: unknown): RequirementMatch[] | null {
+  const rawItems = Array.isArray(value)
+    ? value
+    : isRecord(value) && Array.isArray(value.requirements)
+      ? value.requirements
+      : null;
+
+  if (!rawItems) {
+    return null;
+  }
+
+  const matches: RequirementMatch[] = [];
+  const seen = new Set<string>();
+  for (const item of rawItems) {
+    if (!isRecord(item)) {
+      continue;
+    }
+
+    const requirement = typeof item.requirement === "string"
+      ? cleanInlineText(item.requirement, 500)
+      : null;
+    const status = normalizeRequirementStatus(item.status);
+    const evidence = typeof item.evidence === "string"
+      ? cleanInlineText(item.evidence, 500)
+      : null;
+
+    if (!requirement || !status || !evidence) {
+      continue;
+    }
+
+    const key = requirement.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    matches.push({ requirement, status, evidence });
+    if (matches.length >= 12) {
+      break;
+    }
+  }
+
+  return matches.length ? matches : null;
 }
 
 async function loadApplicationForAi(
@@ -287,6 +463,10 @@ function cleanTextArray(value: unknown[], maxItems: number, maxLength: number) {
   }
 
   return cleaned;
+}
+
+function normalizeRequirementStatus(value: unknown): RequirementMatchStatus | null {
+  return value === "met" || value === "partial" || value === "missing" ? value : null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -6,8 +6,10 @@ import { redirect } from "next/navigation";
 import { normalizeCompanyName } from "./company";
 import { requireDashboardAccess } from "./dashboard-auth";
 import {
+  generateTailoredResumeVariant,
   saveProfileResume,
   scoreApplicationFit,
+  scoreApplicationRequirements,
   tailorApplication
 } from "./resume-fit";
 import { createSupabaseServerClient } from "./supabase";
@@ -533,11 +535,31 @@ export async function scoreApplicationFitAction(formData: FormData) {
   redirectWithStatus(id, status);
 }
 
+export async function scoreApplicationRequirementsAction(formData: FormData) {
+  const id = readString(formData.get("applicationId"));
+  const status = await scoreApplicationRequirements(id);
+
+  if (status === "requirements_saved") {
+    revalidateApplicationViews(id);
+  }
+  redirectWithStatus(id, status);
+}
+
 export async function tailorApplicationAction(formData: FormData) {
   const id = readString(formData.get("applicationId"));
   const status = await tailorApplication(id);
 
   if (status === "tailor_saved") {
+    revalidateApplicationViews(id);
+  }
+  redirectWithStatus(id, status);
+}
+
+export async function generateTailoredResumeAction(formData: FormData) {
+  const id = readString(formData.get("applicationId"));
+  const status = await generateTailoredResumeVariant(id);
+
+  if (status === "tailored_resume_saved") {
     revalidateApplicationViews(id);
   }
   redirectWithStatus(id, status);

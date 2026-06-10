@@ -4,7 +4,9 @@ const applicationId = "00000000-0000-4000-8000-000000000001";
 
 const mockAnthropic = vi.hoisted(() => ({
   scoreFitWithClaude: vi.fn(),
-  tailorApplicationWithClaude: vi.fn()
+  tailorApplicationWithClaude: vi.fn(),
+  analyzeRequirementsWithClaude: vi.fn(),
+  tailorResumeVariantWithClaude: vi.fn()
 }));
 
 const mockSupabase = vi.hoisted(() => {
@@ -141,8 +143,10 @@ import {
 } from "../lib/dashboard-actions";
 import { requireDashboardAccess } from "../lib/dashboard-auth";
 import {
+  generateTailoredResumeVariant,
   saveProfileResume,
   scoreApplicationFit,
+  scoreApplicationRequirements,
   tailorApplication
 } from "../lib/resume-fit";
 
@@ -167,6 +171,8 @@ describe("dashboard actions", () => {
     mockedRequireDashboardAccess.mockClear();
     mockAnthropic.scoreFitWithClaude.mockReset();
     mockAnthropic.tailorApplicationWithClaude.mockReset();
+    mockAnthropic.analyzeRequirementsWithClaude.mockReset();
+    mockAnthropic.tailorResumeVariantWithClaude.mockReset();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
   });
 
@@ -281,6 +287,86 @@ describe("dashboard actions", () => {
     });
 
     await expect(scoreApplicationFit(applicationId)).resolves.toBe("fit_error");
+
+    expect(mockSupabase.state.updates).toEqual([]);
+  });
+
+  it("stores a validated requirement match array", async () => {
+    mockAnthropic.analyzeRequirementsWithClaude.mockResolvedValue({
+      requirements: [
+        {
+          requirement: " SQL analytics ",
+          status: "met",
+          evidence: " Resume names SQL analytics workflows. "
+        },
+        {
+          requirement: "React dashboards",
+          status: "partial",
+          evidence: "Resume names dashboards but not React."
+        },
+        {
+          requirement: "Python automation",
+          status: "missing",
+          evidence: "Python is not present in the resume."
+        },
+        {
+          requirement: "React dashboards",
+          status: "missing",
+          evidence: "Duplicate should be ignored."
+        },
+        {
+          requirement: "Invalid item",
+          status: "supported",
+          evidence: "Invalid status should be ignored."
+        }
+      ]
+    });
+
+    await expect(scoreApplicationRequirements(applicationId)).resolves.toBe(
+      "requirements_saved"
+    );
+
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          requirement_matches: [
+            {
+              requirement: "SQL analytics",
+              status: "met",
+              evidence: "Resume names SQL analytics workflows."
+            },
+            {
+              requirement: "React dashboards",
+              status: "partial",
+              evidence: "Resume names dashboards but not React."
+            },
+            {
+              requirement: "Python automation",
+              status: "missing",
+              evidence: "Python is not present in the resume."
+            }
+          ],
+          requirements_scored_at: expect.any(String)
+        })
+      }
+    ]);
+  });
+
+  it("leaves requirement matches unset for a malformed model response", async () => {
+    mockAnthropic.analyzeRequirementsWithClaude.mockResolvedValue({
+      requirements: [
+        {
+          requirement: "Python automation",
+          status: "unsupported",
+          evidence: "Wrong status."
+        }
+      ]
+    });
+
+    await expect(scoreApplicationRequirements(applicationId)).resolves.toBe(
+      "requirements_error"
+    );
 
     expect(mockSupabase.state.updates).toEqual([]);
   });
@@ -644,5 +730,27 @@ describe("dashboard actions", () => {
         })
       }
     ]);
+  });
+
+  it("stores a tailored resume variant without touching the master resume", async () => {
+    mockAnthropic.tailorResumeVariantWithClaude.mockResolvedValue(
+      " Tailored resume\n\nBuilt SQL dashboards for analytics workflows. "
+    );
+
+    await expect(generateTailoredResumeVariant(applicationId)).resolves.toBe(
+      "tailored_resume_saved"
+    );
+
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          ai_tailored_resume:
+            "Tailored resume\n\nBuilt SQL dashboards for analytics workflows.",
+          tailored_resume_at: expect.any(String)
+        })
+      }
+    ]);
+    expect(mockSupabase.state.upserts).toEqual([]);
   });
 });

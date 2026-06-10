@@ -26,6 +26,8 @@ type FitPromptInput = {
   resumeText: string;
 };
 
+type ResumeIntelligenceInput = FitPromptInput;
+
 export type ScreenerAnswerProfile = {
   full_name: string | null;
   email: string | null;
@@ -67,6 +69,15 @@ export const TAILORING_OUTPUT_SHAPE =
 export const SCREENER_ANSWER_SYSTEM_PROMPT =
   "You draft concise job application screener answers. Write in first person. Be specific, honest, and grounded only in the supplied profile and resume.";
 
+export const REQUIREMENT_MATCHING_SYSTEM_PROMPT =
+  "You analyze job requirements against a resume. Return only strict JSON. Never infer or invent experience, skills, or claims that are not explicitly supported by the resume.";
+
+export const REQUIREMENT_MATCHING_OUTPUT_SHAPE =
+  '{"requirements":[{"requirement":"","status":"met","evidence":""}]}';
+
+export const TAILORED_RESUME_SYSTEM_PROMPT =
+  "You tailor resumes only by rephrasing, reordering, and emphasizing content already present in the supplied resume. Never invent experience, skills, credentials, metrics, tools, or claims.";
+
 export async function scoreFitWithClaude(input: FitPromptInput): Promise<unknown> {
   return requestClaudeJson({
     system: FIT_SCORING_SYSTEM_PROMPT,
@@ -91,6 +102,27 @@ export async function draftScreenerAnswerWithClaude(
     prompt: buildScreenerAnswerPrompt(input),
     maxTokens: 500,
     temperature: 0.3
+  });
+}
+
+export async function analyzeRequirementsWithClaude(
+  input: ResumeIntelligenceInput
+): Promise<unknown> {
+  return requestClaudeJson({
+    system: REQUIREMENT_MATCHING_SYSTEM_PROMPT,
+    prompt: buildRequirementMatchingPrompt(input),
+    maxTokens: 1800
+  });
+}
+
+export async function tailorResumeVariantWithClaude(
+  input: ResumeIntelligenceInput
+): Promise<string> {
+  return requestClaudeText({
+    system: TAILORED_RESUME_SYSTEM_PROMPT,
+    prompt: buildTailoredResumePrompt(input),
+    maxTokens: 5000,
+    temperature: 0.2
   });
 }
 
@@ -156,6 +188,47 @@ export function buildScreenerAnswerPrompt(input: ScreenerAnswerPromptInput) {
     "",
     "Master resume:",
     input.resumeText || "Not set"
+  ].join("\n");
+}
+
+export function buildRequirementMatchingPrompt(input: ResumeIntelligenceInput) {
+  return [
+    "Extract the key requirements from this job posting and compare each one against the resume.",
+    "Return exactly one JSON object and nothing else.",
+    `The JSON shape must be exactly: ${REQUIREMENT_MATCHING_OUTPUT_SHAPE}`,
+    "requirements must contain at most 12 items.",
+    "status must be exactly one of: met, partial, missing.",
+    "evidence must be one concise sentence that points to the resume support, or says what is absent.",
+    "Never invent support. If the resume does not clearly support a requirement, mark it partial or missing.",
+    "",
+    `Company: ${input.company}`,
+    `Role: ${input.role || "Not set"}`,
+    "",
+    "Job posting notes:",
+    input.jobDescription || "Not set",
+    "",
+    "Master resume:",
+    input.resumeText
+  ].join("\n");
+}
+
+export function buildTailoredResumePrompt(input: ResumeIntelligenceInput) {
+  return [
+    "Create a tailored resume variant for this role using only the supplied master resume.",
+    "Return only the tailored resume text. Do not wrap it in markdown fences.",
+    "You may rephrase, reorder, shorten, and emphasize existing content.",
+    "You must not add new companies, roles, skills, tools, metrics, credentials, dates, outcomes, or experience.",
+    "Every line in the tailored resume must trace directly to content in the master resume.",
+    "If the job asks for something absent from the resume, do not add it.",
+    "",
+    `Company: ${input.company}`,
+    `Role: ${input.role || "Not set"}`,
+    "",
+    "Job posting notes:",
+    input.jobDescription || "Not set",
+    "",
+    "Master resume:",
+    input.resumeText
   ].join("\n");
 }
 

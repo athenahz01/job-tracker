@@ -10,6 +10,8 @@ export type PerformanceApplication = {
   first_seen: string | null;
   resume_version?: string | null;
   tags?: string[] | null;
+  missing_keywords?: string[] | null;
+  requirement_matches?: unknown;
 };
 
 export type PerformanceEvent = {
@@ -48,9 +50,16 @@ export type PerformanceSummary = {
   tag: string;
 };
 
+export type SkillGap = {
+  key: string;
+  label: string;
+  count: number;
+};
+
 export type PerformanceData = {
   totalApplied: number;
   summary: PerformanceSummary;
+  skillGaps: SkillGap[];
   breakdowns: PerformanceBreakdown[];
 };
 
@@ -70,12 +79,14 @@ export function buildPerformanceData(
   events: PerformanceEvent[]
 ): PerformanceData {
   const eventsByApplication = groupEventsByApplication(events);
-  const summaries = applications
+  const eligibleApplications = applications.filter(
+    (application) =>
+      (application.kind ?? "application") === "application" &&
+      !application.merged_into_id
+  );
+  const summaries = eligibleApplications
     .filter(
-      (application) =>
-        (application.kind ?? "application") === "application" &&
-        !application.merged_into_id &&
-        application.stage !== "Saved"
+      (application) => application.stage !== "Saved"
     )
     .map((application) =>
       summarizeApplication(application, eventsByApplication.get(application.id) ?? [])
@@ -106,6 +117,7 @@ export function buildPerformanceData(
   return {
     totalApplied: summaries.length,
     summary: buildSummary(breakdowns),
+    skillGaps: buildSkillGaps(eligibleApplications),
     breakdowns
   };
 }
@@ -205,6 +217,87 @@ function buildSummary(breakdowns: PerformanceBreakdown[]): PerformanceSummary {
     ),
     tag: leaderSentence(tag, "tag", "No tag has enough applied roles yet to call a winner.")
   };
+}
+
+function buildSkillGaps(applications: PerformanceApplication[]): SkillGap[] {
+  const gaps = new Map<string, { label: string; count: number }>();
+
+  for (const application of applications) {
+    const applicationGaps = new Map<string, string>();
+    for (const gap of gapLabelsForApplication(application)) {
+      const key = normalizeGapKey(gap);
+      if (!key || applicationGaps.has(key)) {
+        continue;
+      }
+      applicationGaps.set(key, cleanGapLabel(gap));
+    }
+
+    for (const [key, label] of applicationGaps) {
+      const existing = gaps.get(key);
+      gaps.set(key, {
+        label: existing?.label ?? label,
+        count: (existing?.count ?? 0) + 1
+      });
+    }
+  }
+
+  return Array.from(gaps.entries())
+    .map(([key, value]) => ({
+      key,
+      label: value.label,
+      count: value.count
+    }))
+    .sort((left, right) => {
+      if (left.count !== right.count) {
+        return right.count - left.count;
+      }
+      return left.label.localeCompare(right.label);
+    })
+    .slice(0, 10);
+}
+
+function gapLabelsForApplication(application: PerformanceApplication) {
+  const gaps: string[] = [];
+  if (Array.isArray(application.missing_keywords)) {
+    gaps.push(...application.missing_keywords);
+  }
+
+  for (const match of extractRequirementMatches(application.requirement_matches)) {
+    if (match.status === "missing" || match.status === "partial") {
+      gaps.push(match.requirement);
+    }
+  }
+
+  return gaps;
+}
+
+function extractRequirementMatches(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter(
+    (item): item is { requirement: string; status: "met" | "partial" | "missing" } =>
+      Boolean(item) &&
+      typeof item === "object" &&
+      !Array.isArray(item) &&
+      typeof (item as { requirement?: unknown }).requirement === "string" &&
+      ((item as { status?: unknown }).status === "met" ||
+        (item as { status?: unknown }).status === "partial" ||
+        (item as { status?: unknown }).status === "missing")
+  );
+}
+
+function normalizeGapKey(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9+#.\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function cleanGapLabel(value: string) {
+  return value.replace(/\s+/g, " ").trim().slice(0, 140);
 }
 
 function leaderSentence(

@@ -2,7 +2,8 @@ import type {
   PerformanceBreakdown,
   PerformanceData,
   PerformanceGroup,
-  PerformanceRate
+  PerformanceRate,
+  SkillGap
 } from "../lib/performance-calc";
 
 type PerformanceViewProps = {
@@ -41,9 +42,40 @@ export default function PerformanceView({ data }: PerformanceViewProps) {
         </p>
       )}
 
+      <SkillGapPanel gaps={data.skillGaps} />
+
       {data.breakdowns.map((breakdown) => (
         <PerformanceBreakdownTable breakdown={breakdown} key={breakdown.key} />
       ))}
+    </section>
+  );
+}
+
+function SkillGapPanel({ gaps }: { gaps: SkillGap[] }) {
+  return (
+    <section className="insight-panel" aria-labelledby="skill-gaps-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">What to learn</p>
+          <h3 id="skill-gaps-heading">Recurring Skill Gaps</h3>
+        </div>
+      </div>
+
+      {gaps.length ? (
+        <ol className="skill-gap-list">
+          {gaps.map((gap) => (
+            <li key={gap.key}>
+              <span>{gap.label}</span>
+              <strong>{gap.count} {gap.count === 1 ? "role" : "roles"}</strong>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="empty-state">
+          Run fit scoring or requirement matching on a few roles and recurring gaps will appear
+          here.
+        </p>
+      )}
     </section>
   );
 }

@@ -10,6 +10,12 @@ import { type Priority, type Relationship } from "./tracker";
 
 export type ApplicationKind = "application" | "recruiter_outreach";
 
+export type RequirementMatchRow = {
+  requirement: string;
+  status: "met" | "partial" | "missing";
+  evidence: string;
+};
+
 export type ApplicationRow = {
   id: string;
   company: string;
@@ -36,9 +42,13 @@ export type ApplicationRow = {
   fit_summary: string | null;
   missing_keywords: string[];
   scored_at: string | null;
+  requirement_matches: RequirementMatchRow[];
+  requirements_scored_at: string | null;
   ai_tailored_bullets: string[];
   ai_cover_letter: string | null;
   tailored_at: string | null;
+  ai_tailored_resume: string | null;
+  tailored_resume_at: string | null;
   first_seen: string;
   last_activity: string;
   created_at: string;
@@ -271,7 +281,7 @@ export async function getPerformanceData(): Promise<PerformanceData> {
   const applicationsResponse = await supabase
     .from("applications")
     .select(
-      "id, source, stage, kind, merged_into_id, first_seen, resume_version, tags"
+      "id, source, stage, kind, merged_into_id, first_seen, resume_version, tags, missing_keywords, requirement_matches"
     )
     .eq("kind", "application")
     .is("merged_into_id", null);
@@ -472,7 +482,13 @@ export async function getNetworkData() {
 export async function getApplicationDetail(id: string) {
   const supabase = createSupabaseServerClient();
 
-  const [applicationResponse, eventsResponse, mergeTargetsResponse, contactsResponse] =
+  const [
+    applicationResponse,
+    eventsResponse,
+    mergeTargetsResponse,
+    contactsResponse,
+    profileResponse
+  ] =
     await Promise.all([
       supabase
         .from("applications")
@@ -495,14 +511,20 @@ export async function getApplicationDetail(id: string) {
         .from("contacts")
         .select("*")
         .eq("application_id", id)
-        .order("next_follow_up", { ascending: true, nullsFirst: false })
+        .order("next_follow_up", { ascending: true, nullsFirst: false }),
+      supabase
+        .from("profile")
+        .select("resume_text")
+        .eq("id", 1)
+        .maybeSingle()
     ]);
 
   if (
     applicationResponse.error ||
     eventsResponse.error ||
     mergeTargetsResponse.error ||
-    contactsResponse.error
+    contactsResponse.error ||
+    profileResponse.error
   ) {
     throw new Error("Could not load application detail.");
   }
@@ -515,7 +537,11 @@ export async function getApplicationDetail(id: string) {
     mergeTargets: normalizeApplications(mergeTargetsResponse.data).filter(
       (application) => application.id !== id
     ),
-    contacts: (contactsResponse.data ?? []) as ContactRow[]
+    contacts: (contactsResponse.data ?? []) as ContactRow[],
+    masterResumeText:
+      typeof profileResponse.data?.resume_text === "string"
+        ? profileResponse.data.resume_text
+        : null
   };
 }
 
@@ -534,12 +560,48 @@ function normalizeApplications(rows: unknown): ApplicationRow[] {
     fit_summary: row.fit_summary ?? null,
     missing_keywords: Array.isArray(row.missing_keywords) ? row.missing_keywords : [],
     scored_at: row.scored_at ?? null,
+    requirement_matches: normalizeRequirementMatches(row.requirement_matches),
+    requirements_scored_at: row.requirements_scored_at ?? null,
     ai_tailored_bullets: Array.isArray(row.ai_tailored_bullets)
       ? row.ai_tailored_bullets
       : [],
     ai_cover_letter: row.ai_cover_letter ?? null,
-    tailored_at: row.tailored_at ?? null
+    tailored_at: row.tailored_at ?? null,
+    ai_tailored_resume:
+      typeof row.ai_tailored_resume === "string" ? row.ai_tailored_resume : null,
+    tailored_resume_at: row.tailored_resume_at ?? null
   }));
+}
+
+function normalizeRequirementMatches(value: unknown): RequirementMatchRow[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const matches: RequirementMatchRow[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      continue;
+    }
+    const row = item as Partial<RequirementMatchRow>;
+    if (
+      typeof row.requirement !== "string" ||
+      typeof row.evidence !== "string" ||
+      !isRequirementStatus(row.status)
+    ) {
+      continue;
+    }
+    matches.push({
+      requirement: row.requirement,
+      status: row.status,
+      evidence: row.evidence
+    });
+  }
+  return matches;
+}
+
+function isRequirementStatus(value: unknown): value is RequirementMatchRow["status"] {
+  return value === "met" || value === "partial" || value === "missing";
 }
 
 function normalizeScreenerAnswers(rows: unknown): ScreenerAnswerRow[] {

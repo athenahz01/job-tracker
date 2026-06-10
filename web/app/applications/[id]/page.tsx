@@ -8,15 +8,18 @@ import FitScoreBadge from "../../../components/FitScoreBadge";
 import MergeForm from "../../../components/MergeForm";
 import {
   clearStageLockAction,
+  generateTailoredResumeAction,
   renameCompanyAction,
   setStageAction,
   scoreApplicationFitAction,
+  scoreApplicationRequirementsAction,
   tailorApplicationAction,
   updateApplicationRoleAction,
   updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
 import { formatConfidence, formatDate, gmailUrl, timeAgo } from "../../../lib/format";
+import { buildResumeDiff, type ResumeDiffLine } from "../../../lib/resume-diff";
 import { priorityClass, stageClass } from "../../../lib/style-utils";
 import { stages } from "../../../lib/stages";
 import { priorities } from "../../../lib/tracker";
@@ -32,7 +35,8 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
   const { id } = await params;
   const query = (await searchParams) ?? {};
   const status = readSingle(query.status);
-  const { application, events, mergeTargets, contacts } = await getApplicationDetail(id);
+  const { application, events, mergeTargets, contacts, masterResumeText } =
+    await getApplicationDetail(id);
 
   if (!application) {
     notFound();
@@ -45,6 +49,9 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
     role: application.role,
     stage: application.stage
   };
+  const tailoredResumeDiff = application.ai_tailored_resume
+    ? buildResumeDiff(masterResumeText, application.ai_tailored_resume)
+    : [];
 
   return (
     <main className="detail-shell">
@@ -181,12 +188,20 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               <p className="eyebrow">Resume match</p>
               <h2>Fit Score</h2>
             </div>
-            <form action={scoreApplicationFitAction}>
-              <input type="hidden" name="applicationId" value={application.id} />
-              <button className="primary-button" type="submit">
-                Score fit
-              </button>
-            </form>
+            <div className="form-actions">
+              <form action={scoreApplicationFitAction}>
+                <input type="hidden" name="applicationId" value={application.id} />
+                <button className="primary-button" type="submit">
+                  Score fit
+                </button>
+              </form>
+              <form action={scoreApplicationRequirementsAction}>
+                <input type="hidden" name="applicationId" value={application.id} />
+                <button className="secondary-button" type="submit">
+                  Score requirements
+                </button>
+              </form>
+            </div>
           </div>
           <dl className="ai-result-grid">
             <div>
@@ -219,6 +234,10 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               </dd>
             </div>
           </dl>
+          <RequirementChecklist
+            matches={application.requirement_matches}
+            scoredAt={application.requirements_scored_at}
+          />
         </section>
       ) : null}
 
@@ -230,12 +249,20 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               <h2>Tailoring</h2>
               <p className="muted">Drafts to adapt before using.</p>
             </div>
-            <form action={tailorApplicationAction}>
-              <input type="hidden" name="applicationId" value={application.id} />
-              <button className="primary-button" type="submit">
-                Generate tailoring
-              </button>
-            </form>
+            <div className="form-actions">
+              <form action={tailorApplicationAction}>
+                <input type="hidden" name="applicationId" value={application.id} />
+                <button className="primary-button" type="submit">
+                  Generate tailoring
+                </button>
+              </form>
+              <form action={generateTailoredResumeAction}>
+                <input type="hidden" name="applicationId" value={application.id} />
+                <button className="secondary-button" type="submit">
+                  Generate resume variant
+                </button>
+              </form>
+            </div>
           </div>
           <div className="draft-grid">
             <label className="field wide-field">
@@ -264,6 +291,11 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
               <p className="muted">Generated {formatDate(application.tailored_at)}</p>
             ) : null}
           </div>
+          <TailoredResumePanel
+            tailoredResume={application.ai_tailored_resume}
+            generatedAt={application.tailored_resume_at}
+            diff={tailoredResumeDiff}
+          />
         </section>
       ) : null}
 
@@ -437,6 +469,115 @@ function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function RequirementChecklist({
+  matches,
+  scoredAt
+}: {
+  matches: {
+    requirement: string;
+    status: "met" | "partial" | "missing";
+    evidence: string;
+  }[];
+  scoredAt: string | null;
+}) {
+  return (
+    <section className="requirement-panel" aria-labelledby="requirement-checklist-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Requirements</p>
+          <h3 id="requirement-checklist-heading">Checklist</h3>
+        </div>
+        {scoredAt ? <span className="muted">Scored {formatDate(scoredAt)}</span> : null}
+      </div>
+
+      {matches.length ? (
+        <ul className="requirement-list">
+          {matches.map((match) => (
+            <li className={`requirement-item requirement-${match.status}`} key={match.requirement}>
+              <span className="requirement-marker" aria-hidden="true" />
+              <div>
+                <strong>{match.requirement}</strong>
+                <p>{match.evidence}</p>
+              </div>
+              <span>{statusLabel(match.status)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="empty-state">No requirement checklist saved yet.</p>
+      )}
+    </section>
+  );
+}
+
+function TailoredResumePanel({
+  tailoredResume,
+  generatedAt,
+  diff
+}: {
+  tailoredResume: string | null;
+  generatedAt: string | null;
+  diff: ResumeDiffLine[];
+}) {
+  return (
+    <section className="tailored-resume-panel" aria-labelledby="tailored-resume-heading">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">Resume variant</p>
+          <h3 id="tailored-resume-heading">Review Diff</h3>
+        </div>
+        {generatedAt ? <span className="muted">Generated {formatDate(generatedAt)}</span> : null}
+      </div>
+
+      {tailoredResume ? (
+        <div className="tailored-resume-stack">
+          <div className="resume-diff" aria-label="Tailored resume changes">
+            {diff.length ? (
+              diff.map((line) => (
+                <div className={`resume-diff-line diff-${line.type}`} key={line.key}>
+                  <span>{diffPrefix(line.type)}</span>
+                  <code>{line.text || " "}</code>
+                </div>
+              ))
+            ) : (
+              <p className="empty-state">No line-level changes detected.</p>
+            )}
+          </div>
+          <label className="field wide-field">
+            <span>Tailored resume text</span>
+            <textarea
+              readOnly
+              rows={Math.min(26, Math.max(10, tailoredResume.split("\n").length + 1))}
+              defaultValue={tailoredResume}
+            />
+          </label>
+        </div>
+      ) : (
+        <p className="empty-state">No tailored resume variant saved yet.</p>
+      )}
+    </section>
+  );
+}
+
+function statusLabel(status: "met" | "partial" | "missing") {
+  const labels = {
+    met: "Met",
+    partial: "Partial",
+    missing: "Gap"
+  };
+  return labels[status];
+}
+
+function diffPrefix(type: ResumeDiffLine["type"]) {
+  if (type === "added") {
+    return "+";
+  }
+  if (type === "removed") {
+    return "-";
+  }
+  return " ";
+}
+
 function statusMessage(status: string) {
   const messages: Record<string, string> = {
     stage_saved: "Stage saved and locked.",
@@ -446,8 +587,12 @@ function statusMessage(status: string) {
     fit_scored: "Fit score saved.",
     resume_missing: "Save a master resume in Profile first.",
     fit_error: "The fit score could not be saved.",
+    requirements_saved: "Requirement checklist saved.",
+    requirements_error: "The requirement checklist could not be saved.",
     tailor_saved: "Tailoring drafts saved.",
     tailor_error: "The tailoring drafts could not be saved.",
+    tailored_resume_saved: "Tailored resume variant saved.",
+    tailored_resume_error: "The tailored resume variant could not be saved.",
     company_saved: "Company name saved.",
     company_error: "The company name could not be saved.",
     role_saved: "Role saved.",
