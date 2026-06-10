@@ -1038,7 +1038,7 @@ tr[tabindex]:focus-visible {
   margin-top: 14px;
 }
 
-.profile-form textarea {
+.resume-form textarea {
   min-height: 520px;
 }
 
@@ -1102,6 +1102,13 @@ tr[tabindex]:focus-visible {
 
 .delete-answer-form {
   margin-top: 10px;
+}
+
+.profile-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
 }
 
 .tracker-editor {

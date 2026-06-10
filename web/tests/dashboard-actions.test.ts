@@ -124,11 +124,19 @@ vi.mock("next/navigation", () => ({
 
 import {
   createContactAction,
+  createEducationAction,
   createScreenerAnswerAction,
+  createWorkExperienceAction,
+  deleteEducationAction,
   deleteScreenerAnswerAction,
+  deleteWorkExperienceAction,
   renameCompanyAction,
   saveApplicationProfileAction,
+  saveEqualEmploymentAction,
+  saveSkillsAction,
+  updateEducationAction,
   updateScreenerAnswerAction,
+  updateWorkExperienceAction,
   updateApplicationRoleAction
 } from "../lib/dashboard-actions";
 import { requireDashboardAccess } from "../lib/dashboard-auth";
@@ -301,16 +309,21 @@ describe("dashboard actions", () => {
 
   it("upserts application profile details through a gated action", async () => {
     const formData = new FormData();
+    formData.set("firstName", " Ada ");
+    formData.set("lastName", " Lovelace ");
     formData.set("fullName", " Ada Lovelace ");
     formData.set("email", " ada@example.com ");
     formData.set("phone", "555-0100");
     formData.set("location", "New York, NY");
+    formData.set("city", "New York");
+    formData.set("state", "NY");
+    formData.set("country", "United States");
+    formData.set("postalCode", "10001");
     formData.set("linkedinUrl", "https://linkedin.com/in/ada");
     formData.set("githubUrl", "https://github.com/ada");
     formData.set("portfolioUrl", "https://ada.example.com/work");
     formData.set("websiteUrl", "https://ada.example.com");
     formData.set("workAuthorization", "Authorized to work in the United States");
-    formData.set("requiresSponsorship", "on");
     formData.set("yearsExperience", "7");
     formData.set("currentTitle", "Product Engineer");
 
@@ -324,15 +337,216 @@ describe("dashboard actions", () => {
         table: "profile",
         value: expect.objectContaining({
           id: 1,
+          first_name: "Ada",
+          last_name: "Lovelace",
           full_name: "Ada Lovelace",
           email: "ada@example.com",
-          requires_sponsorship: true,
+          city: "New York",
+          state: "NY",
+          country: "United States",
+          postal_code: "10001",
           years_experience: "7",
           current_title: "Product Engineer"
         }),
         options: { onConflict: "id" }
       }
     ]);
+  });
+
+  it("upserts equal employment answers through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("workAuthorized", "Yes");
+    formData.set("requiresSponsorship", "no");
+    formData.set("gender", "Decline to state");
+    formData.set("raceEthnicity", "Decline to state");
+    formData.set("hispanicLatino", "Decline to state");
+    formData.set("veteranStatus", "Not a veteran");
+    formData.set("disabilityStatus", "No");
+    formData.set("lgbtqStatus", "Decline to state");
+
+    await expect(saveEqualEmploymentAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=equal_employment_saved"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.upserts).toEqual([
+      {
+        table: "profile",
+        value: expect.objectContaining({
+          id: 1,
+          work_authorized: "Yes",
+          requires_sponsorship: false,
+          gender: "Decline to state",
+          veteran_status: "Not a veteran",
+          disability_status: "No"
+        }),
+        options: { onConflict: "id" }
+      }
+    ]);
+  });
+
+  it("upserts skills through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("skills", " TypeScript, SQL, TypeScript, analytics ");
+
+    await expect(saveSkillsAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=skills_saved"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.upserts).toEqual([
+      {
+        table: "profile",
+        value: expect.objectContaining({
+          id: 1,
+          skills: ["TypeScript", "SQL", "analytics"]
+        }),
+        options: { onConflict: "id" }
+      }
+    ]);
+  });
+
+  it("creates, updates, and deletes education entries through gated actions", async () => {
+    const createForm = new FormData();
+    createForm.set("school", "Analytical University");
+    createForm.set("degree", "BS");
+    createForm.set("fieldOfStudy", "Computer Science");
+    createForm.set("startDate", "2018");
+    createForm.set("endDate", "2022");
+    createForm.set("gpa", "3.8");
+
+    await expect(createEducationAction(createForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=education_saved"
+    });
+
+    const updateForm = new FormData();
+    updateForm.set("educationId", "00000000-0000-4000-8000-000000000003");
+    updateForm.set("school", "Analytical University");
+    updateForm.set("degree", "MS");
+    updateForm.set("fieldOfStudy", "Data Science");
+
+    await expect(updateEducationAction(updateForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=education_saved"
+    });
+
+    const deleteForm = new FormData();
+    deleteForm.set("educationId", "00000000-0000-4000-8000-000000000003");
+
+    await expect(deleteEducationAction(deleteForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=education_deleted"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalledTimes(3);
+    expect(mockSupabase.state.inserts).toEqual([
+      {
+        table: "education",
+        value: expect.objectContaining({
+          school: "Analytical University",
+          degree: "BS",
+          field_of_study: "Computer Science"
+        })
+      }
+    ]);
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "education",
+        value: expect.objectContaining({
+          degree: "MS",
+          field_of_study: "Data Science",
+          updated_at: expect.any(String)
+        })
+      }
+    ]);
+    expect(mockSupabase.state.deletes).toEqual([
+      {
+        table: "education",
+        value: { id: "00000000-0000-4000-8000-000000000003" }
+      }
+    ]);
+  });
+
+  it("rejects invalid education entries", async () => {
+    const formData = new FormData();
+    formData.set("startDate", "2018");
+
+    await expect(createEducationAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=education_invalid"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.inserts).toEqual([]);
+  });
+
+  it("creates, updates, and deletes work entries through gated actions", async () => {
+    const createForm = new FormData();
+    createForm.set("company", "Acme");
+    createForm.set("title", "Product Engineer");
+    createForm.set("location", "New York, NY");
+    createForm.set("startDate", "2022");
+    createForm.set("isCurrent", "on");
+    createForm.set("description", "Built analytics workflows.");
+
+    await expect(createWorkExperienceAction(createForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=work_saved"
+    });
+
+    const updateForm = new FormData();
+    updateForm.set("workExperienceId", "00000000-0000-4000-8000-000000000004");
+    updateForm.set("company", "Acme");
+    updateForm.set("title", "Senior Product Engineer");
+    updateForm.set("description", "Led product analytics workflows.");
+
+    await expect(updateWorkExperienceAction(updateForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=work_saved"
+    });
+
+    const deleteForm = new FormData();
+    deleteForm.set("workExperienceId", "00000000-0000-4000-8000-000000000004");
+
+    await expect(deleteWorkExperienceAction(deleteForm)).rejects.toMatchObject({
+      path: "/?view=profile&status=work_deleted"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalledTimes(3);
+    expect(mockSupabase.state.inserts).toEqual([
+      {
+        table: "work_experience",
+        value: expect.objectContaining({
+          company: "Acme",
+          title: "Product Engineer",
+          is_current: true,
+          description: "Built analytics workflows."
+        })
+      }
+    ]);
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "work_experience",
+        value: expect.objectContaining({
+          title: "Senior Product Engineer",
+          description: "Led product analytics workflows.",
+          updated_at: expect.any(String)
+        })
+      }
+    ]);
+    expect(mockSupabase.state.deletes).toEqual([
+      {
+        table: "work_experience",
+        value: { id: "00000000-0000-4000-8000-000000000004" }
+      }
+    ]);
+  });
+
+  it("rejects invalid work entries", async () => {
+    const formData = new FormData();
+    formData.set("startDate", "2022");
+
+    await expect(createWorkExperienceAction(formData)).rejects.toMatchObject({
+      path: "/?view=profile&status=work_invalid"
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.inserts).toEqual([]);
   });
 
   it("creates answer bank entries through a gated action", async () => {

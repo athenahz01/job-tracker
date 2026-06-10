@@ -131,6 +131,8 @@ export default async function Home({ searchParams }: HomeProps) {
       {state.view === "profile" ? (
         <ProfileView
           profile={profileData?.profile ?? null}
+          education={profileData?.education ?? []}
+          workExperience={profileData?.workExperience ?? []}
           answers={profileData?.answers ?? []}
         />
       ) : null}
@@ -326,6 +328,18 @@ function statusMessage(status: string) {
     profile_error: "The master resume could not be saved.",
     application_profile_saved: "Application details saved.",
     application_profile_error: "Application details could not be saved.",
+    equal_employment_saved: "Equal employment answers saved.",
+    equal_employment_error: "Equal employment answers could not be saved.",
+    skills_saved: "Skills saved.",
+    skills_error: "Skills could not be saved.",
+    education_saved: "Education saved.",
+    education_deleted: "Education deleted.",
+    education_invalid: "That education request was not valid.",
+    education_error: "Education could not be saved.",
+    work_saved: "Work experience saved.",
+    work_deleted: "Work experience deleted.",
+    work_invalid: "That work experience request was not valid.",
+    work_error: "Work experience could not be saved.",
     answer_saved: "Answer saved.",
     answer_deleted: "Answer deleted.",
     answer_invalid: "That answer request was not valid.",

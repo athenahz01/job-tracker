@@ -133,18 +133,59 @@ export type FollowUpItem = {
 export type ProfileRow = {
   id: number;
   resume_text: string | null;
+  first_name: string | null;
+  last_name: string | null;
   full_name: string | null;
   email: string | null;
   phone: string | null;
   location: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  postal_code: string | null;
   linkedin_url: string | null;
   github_url: string | null;
   portfolio_url: string | null;
   website_url: string | null;
   work_authorization: string | null;
+  work_authorized: string | null;
   requires_sponsorship: boolean | null;
   years_experience: string | null;
   current_title: string | null;
+  gender: string | null;
+  race_ethnicity: string | null;
+  hispanic_latino: string | null;
+  veteran_status: string | null;
+  disability_status: string | null;
+  lgbtq_status: string | null;
+  skills: string[];
+  updated_at: string;
+};
+
+export type EducationRow = {
+  id: string;
+  school: string | null;
+  degree: string | null;
+  field_of_study: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  gpa: string | null;
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WorkExperienceRow = {
+  id: string;
+  company: string | null;
+  title: string | null;
+  location: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  is_current: boolean;
+  description: string | null;
+  sort_order: number;
+  created_at: string;
   updated_at: string;
 };
 
@@ -159,6 +200,8 @@ export type ScreenerAnswerRow = {
 
 export type ProfileData = {
   profile: ProfileRow | null;
+  education: EducationRow[];
+  workExperience: WorkExperienceRow[];
   answers: ScreenerAnswerRow[];
 };
 
@@ -224,42 +267,68 @@ export async function getInsightsData(): Promise<InsightsData> {
 
 export async function getProfileData(): Promise<ProfileData> {
   const supabase = createSupabaseServerClient();
-  const [profileResponse, answersResponse] = await Promise.all([
+  const [profileResponse, educationResponse, workResponse, answersResponse] = await Promise.all([
     supabase
       .from("profile")
       .select(
         [
           "id",
           "resume_text",
+          "first_name",
+          "last_name",
           "full_name",
           "email",
           "phone",
           "location",
+          "city",
+          "state",
+          "country",
+          "postal_code",
           "linkedin_url",
           "github_url",
           "portfolio_url",
           "website_url",
           "work_authorization",
+          "work_authorized",
           "requires_sponsorship",
           "years_experience",
           "current_title",
+          "gender",
+          "race_ethnicity",
+          "hispanic_latino",
+          "veteran_status",
+          "disability_status",
+          "lgbtq_status",
+          "skills",
           "updated_at"
         ].join(", ")
       )
       .eq("id", 1)
       .maybeSingle(),
     supabase
+      .from("education")
+      .select("id, school, degree, field_of_study, start_date, end_date, gpa, sort_order, created_at, updated_at")
+      .order("sort_order", { ascending: true })
+      .order("updated_at", { ascending: false }),
+    supabase
+      .from("work_experience")
+      .select("id, company, title, location, start_date, end_date, is_current, description, sort_order, created_at, updated_at")
+      .order("sort_order", { ascending: true })
+      .order("updated_at", { ascending: false }),
+    supabase
       .from("screener_answers")
       .select("id, question, answer, tags, created_at, updated_at")
       .order("updated_at", { ascending: false })
   ]);
 
-  if (profileResponse.error || answersResponse.error) {
+  if (profileResponse.error || educationResponse.error || workResponse.error || answersResponse.error) {
     throw new Error("Could not load profile.");
   }
 
   return {
-    profile: (profileResponse.data as ProfileRow | null) ?? null,
+    profile: normalizeProfile(profileResponse.data),
+    education: normalizeEducation(educationResponse.data),
+    workExperience: normalizeWorkExperience(workResponse.data),
     answers: normalizeScreenerAnswers(answersResponse.data)
   };
 }
@@ -442,6 +511,33 @@ function normalizeScreenerAnswers(rows: unknown): ScreenerAnswerRow[] {
   return ((rows ?? []) as ScreenerAnswerRow[]).map((row) => ({
     ...row,
     tags: Array.isArray(row.tags) ? row.tags : []
+  }));
+}
+
+function normalizeProfile(row: unknown): ProfileRow | null {
+  if (!row || typeof row !== "object") {
+    return null;
+  }
+
+  const profile = row as ProfileRow;
+  return {
+    ...profile,
+    skills: Array.isArray(profile.skills) ? profile.skills : []
+  };
+}
+
+function normalizeEducation(rows: unknown): EducationRow[] {
+  return ((rows ?? []) as EducationRow[]).map((row) => ({
+    ...row,
+    sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0
+  }));
+}
+
+function normalizeWorkExperience(rows: unknown): WorkExperienceRow[] {
+  return ((rows ?? []) as WorkExperienceRow[]).map((row) => ({
+    ...row,
+    is_current: Boolean(row.is_current),
+    sort_order: Number.isFinite(Number(row.sort_order)) ? Number(row.sort_order) : 0
   }));
 }
 

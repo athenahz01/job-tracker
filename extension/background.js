@@ -73,6 +73,8 @@ async function getProfile() {
     return {
       ok: true,
       profile: data.profile || null,
+      education: Array.isArray(data.education) ? data.education : [],
+      workExperience: Array.isArray(data.workExperience) ? data.workExperience : [],
       answers: Array.isArray(data.answers) ? data.answers : []
     };
   } catch {

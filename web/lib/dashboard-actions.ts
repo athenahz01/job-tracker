@@ -246,16 +246,21 @@ export async function saveApplicationProfileAction(formData: FormData) {
   const { error } = await supabase.from("profile").upsert(
     {
       id: 1,
+      first_name: cleanOptionalText(formData.get("firstName"), 120),
+      last_name: cleanOptionalText(formData.get("lastName"), 120),
       full_name: cleanOptionalText(formData.get("fullName"), 180),
       email: cleanOptionalText(formData.get("email"), 240),
       phone: cleanOptionalText(formData.get("phone"), 80),
       location: cleanOptionalText(formData.get("location"), 180),
+      city: cleanOptionalText(formData.get("city"), 120),
+      state: cleanOptionalText(formData.get("state"), 120),
+      country: cleanOptionalText(formData.get("country"), 120),
+      postal_code: cleanOptionalText(formData.get("postalCode"), 40),
       linkedin_url: cleanOptionalText(formData.get("linkedinUrl"), 500),
       github_url: cleanOptionalText(formData.get("githubUrl"), 500),
       portfolio_url: cleanOptionalText(formData.get("portfolioUrl"), 500),
       website_url: cleanOptionalText(formData.get("websiteUrl"), 500),
       work_authorization: cleanOptionalText(formData.get("workAuthorization"), 500),
-      requires_sponsorship: formData.get("requiresSponsorship") === "on",
       years_experience: cleanOptionalText(formData.get("yearsExperience"), 80),
       current_title: cleanOptionalText(formData.get("currentTitle"), 180),
       updated_at: new Date().toISOString()
@@ -271,6 +276,187 @@ export async function saveApplicationProfileAction(formData: FormData) {
 
   revalidatePath("/");
   redirect("/?view=profile&status=application_profile_saved");
+}
+
+export async function saveEqualEmploymentAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("profile").upsert(
+    {
+      id: 1,
+      work_authorized: cleanOptionalText(formData.get("workAuthorized"), 120),
+      requires_sponsorship: parseOptionalBoolean(formData.get("requiresSponsorship")),
+      gender: cleanOptionalText(formData.get("gender"), 180),
+      race_ethnicity: cleanOptionalText(formData.get("raceEthnicity"), 240),
+      hispanic_latino: cleanOptionalText(formData.get("hispanicLatino"), 180),
+      veteran_status: cleanOptionalText(formData.get("veteranStatus"), 180),
+      disability_status: cleanOptionalText(formData.get("disabilityStatus"), 180),
+      lgbtq_status: cleanOptionalText(formData.get("lgbtqStatus"), 180),
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("Could not save equal employment profile.");
+    revalidatePath("/");
+    redirect("/?view=profile&status=equal_employment_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=equal_employment_saved");
+}
+
+export async function saveSkillsAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("profile").upsert(
+    {
+      id: 1,
+      skills: parseTags(formData.get("skills")),
+      updated_at: new Date().toISOString()
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) {
+    console.error("Could not save profile skills.");
+    revalidatePath("/");
+    redirect("/?view=profile&status=skills_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=skills_saved");
+}
+
+export async function createEducationAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const payload = readEducationPayload(formData);
+  if (!educationHasContent(payload)) {
+    redirect("/?view=profile&status=education_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("education").insert(payload);
+
+  if (error) {
+    console.error("Could not create education entry.");
+    redirect("/?view=profile&status=education_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=education_saved");
+}
+
+export async function updateEducationAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const educationId = readString(formData.get("educationId"));
+  const payload = readEducationPayload(formData);
+  if (!isUuid(educationId) || !educationHasContent(payload)) {
+    redirect("/?view=profile&status=education_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("education")
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", educationId);
+
+  if (error) {
+    console.error("Could not update education entry.");
+    redirect("/?view=profile&status=education_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=education_saved");
+}
+
+export async function deleteEducationAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const educationId = readString(formData.get("educationId"));
+  if (!isUuid(educationId)) {
+    redirect("/?view=profile&status=education_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("education").delete().eq("id", educationId);
+
+  if (error) {
+    console.error("Could not delete education entry.");
+    redirect("/?view=profile&status=education_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=education_deleted");
+}
+
+export async function createWorkExperienceAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const payload = readWorkExperiencePayload(formData);
+  if (!workExperienceHasContent(payload)) {
+    redirect("/?view=profile&status=work_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("work_experience").insert(payload);
+
+  if (error) {
+    console.error("Could not create work experience entry.");
+    redirect("/?view=profile&status=work_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=work_saved");
+}
+
+export async function updateWorkExperienceAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const workExperienceId = readString(formData.get("workExperienceId"));
+  const payload = readWorkExperiencePayload(formData);
+  if (!isUuid(workExperienceId) || !workExperienceHasContent(payload)) {
+    redirect("/?view=profile&status=work_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("work_experience")
+    .update({ ...payload, updated_at: new Date().toISOString() })
+    .eq("id", workExperienceId);
+
+  if (error) {
+    console.error("Could not update work experience entry.");
+    redirect("/?view=profile&status=work_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=work_saved");
+}
+
+export async function deleteWorkExperienceAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const workExperienceId = readString(formData.get("workExperienceId"));
+  if (!isUuid(workExperienceId)) {
+    redirect("/?view=profile&status=work_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase.from("work_experience").delete().eq("id", workExperienceId);
+
+  if (error) {
+    console.error("Could not delete work experience entry.");
+    redirect("/?view=profile&status=work_error");
+  }
+
+  revalidatePath("/");
+  redirect("/?view=profile&status=work_deleted");
 }
 
 export async function createScreenerAnswerAction(formData: FormData) {
@@ -483,6 +669,39 @@ function readScreenerAnswerPayload(formData: FormData) {
   };
 }
 
+function readEducationPayload(formData: FormData) {
+  return {
+    school: cleanOptionalText(formData.get("school"), 240),
+    degree: cleanOptionalText(formData.get("degree"), 180),
+    field_of_study: cleanOptionalText(formData.get("fieldOfStudy"), 180),
+    start_date: cleanOptionalText(formData.get("startDate"), 80),
+    end_date: cleanOptionalText(formData.get("endDate"), 80),
+    gpa: cleanOptionalText(formData.get("gpa"), 40),
+    sort_order: parseSortOrder(formData.get("sortOrder"))
+  };
+}
+
+function readWorkExperiencePayload(formData: FormData) {
+  return {
+    company: cleanOptionalText(formData.get("company"), 180),
+    title: cleanOptionalText(formData.get("title"), 180),
+    location: cleanOptionalText(formData.get("location"), 180),
+    start_date: cleanOptionalText(formData.get("startDate"), 80),
+    end_date: cleanOptionalText(formData.get("endDate"), 80),
+    is_current: formData.get("isCurrent") === "on",
+    description: cleanOptionalText(formData.get("description"), 8000),
+    sort_order: parseSortOrder(formData.get("sortOrder"))
+  };
+}
+
+function educationHasContent(payload: ReturnType<typeof readEducationPayload>) {
+  return Boolean(payload.school || payload.degree || payload.field_of_study);
+}
+
+function workExperienceHasContent(payload: ReturnType<typeof readWorkExperiencePayload>) {
+  return Boolean(payload.company || payload.title || payload.description);
+}
+
 function cleanRequiredText(value: FormDataEntryValue | null, maxLength: number) {
   return cleanText(value, maxLength) ?? "";
 }
@@ -520,6 +739,24 @@ function parseTags(value: FormDataEntryValue | null) {
         .map((tag) => tag.slice(0, 40))
     )
   ).slice(0, 20);
+}
+
+function parseOptionalBoolean(value: FormDataEntryValue | null) {
+  if (value === "yes" || value === "true" || value === "on") {
+    return true;
+  }
+  if (value === "no" || value === "false") {
+    return false;
+  }
+  return null;
+}
+
+function parseSortOrder(value: FormDataEntryValue | null) {
+  if (typeof value !== "string" || !value.trim()) {
+    return 0;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 }
 
 function optionalPriority(value: string) {

@@ -129,6 +129,8 @@
       setStatus("Filling confident matches...", "");
       const result = await applyAutofillToActiveTab({
         profile: profileResponse.profile,
+        education: profileResponse.education,
+        workExperience: profileResponse.workExperience,
         answers: profileResponse.answers
       });
 
@@ -190,7 +192,9 @@
       func: (autofillPayload) =>
         window.JobTrackerAutofill.applyAutofill(
           autofillPayload.profile,
-          autofillPayload.answers
+          autofillPayload.answers,
+          autofillPayload.education,
+          autofillPayload.workExperience
         ),
       args: [payload]
     });
@@ -335,7 +339,11 @@
       autofillResult.append(
         resultSection(
           "Profile fields",
-          result.fieldsFilled.map((item) => `${item.label}${item.target ? `: ${item.target}` : ""}`)
+          result.fieldsFilled.map((item) =>
+            `${item.label}${item.value ? `: ${item.value}` : ""}${
+              item.target ? ` (${item.target})` : ""
+            }`
+          )
         )
       );
     }
