@@ -116,7 +116,27 @@ tr[tabindex]:focus-visible {
 }
 
 .topbar {
-  margin-bottom: 20px;
+  margin-bottom: 22px;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.brand-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: var(--panel-ink);
+  color: #9fe1cb;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .topbar h1,
@@ -198,7 +218,7 @@ tr[tabindex]:focus-visible {
   margin-bottom: -0.5px;
   border: 0;
   border-bottom: 2px solid transparent;
-  padding: 10px 12px;
+  padding: 11px 15px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 500;
@@ -208,7 +228,7 @@ tr[tabindex]:focus-visible {
 
 .dashboard-tabs a:nth-child(4),
 .dashboard-tabs a:nth-child(7) {
-  margin-left: 20px;
+  margin-left: 10px;
 }
 
 .dashboard-tabs a:hover,
@@ -224,19 +244,20 @@ tr[tabindex]:focus-visible {
 
 .summary-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
-  margin: 0 0 20px;
+  margin: 0 0 22px;
 }
 
 .summary-bar div {
   display: grid;
-  gap: 6px;
+  align-content: start;
+  gap: 5px;
   border: 0.5px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel);
   box-shadow: var(--shadow-soft);
-  padding: 16px;
+  padding: 15px 17px 16px;
 }
 
 .summary-bar span {
@@ -249,10 +270,33 @@ tr[tabindex]:focus-visible {
 
 .summary-bar strong {
   font-variant-numeric: tabular-nums;
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 600;
-  letter-spacing: -0.5px;
-  line-height: 1;
+  letter-spacing: -0.6px;
+  line-height: 1.05;
+}
+
+.summary-context {
+  margin: 1px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.summary-feature {
+  background: var(--panel-ink);
+  border-color: var(--panel-ink) !important;
+}
+
+.summary-feature span {
+  color: #7fc4b3;
+}
+
+.summary-feature strong {
+  color: #eef9f4;
+}
+
+.summary-feature .summary-context {
+  color: #9fd0c4;
 }
 
 .flow-panel {
@@ -1152,9 +1196,11 @@ tr[tabindex]:focus-visible {
 .fit-badge {
   display: inline-flex;
   align-items: center;
+  justify-self: start;
+  width: fit-content;
   min-height: 20px;
   border-radius: var(--radius-pill);
-  padding: 2px 8px;
+  padding: 2px 9px;
   font-size: 12px;
   font-weight: 500;
   font-variant-numeric: tabular-nums;

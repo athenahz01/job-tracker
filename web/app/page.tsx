@@ -73,9 +73,12 @@ export default async function Home({ searchParams }: HomeProps) {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div>
-          <p className="eyebrow">Personal pipeline</p>
-          <h1>Job Tracker</h1>
+        <div className="topbar-brand">
+          <span className="brand-glyph" aria-hidden="true">JT</span>
+          <div>
+            <p className="eyebrow">Personal pipeline</p>
+            <h1>Job Tracker</h1>
+          </div>
         </div>
         <div className="topbar-counts">
           <span>{applications.length} applications</span>
@@ -88,7 +91,10 @@ export default async function Home({ searchParams }: HomeProps) {
 
       <DashboardSummary
         applied={insights.totalApplied}
+        tracked={applications.length}
         responseRate={insights.rates.response.display}
+        responded={insights.rates.response.numerator}
+        responseDenominator={insights.rates.response.denominator}
         followUpsDue={followUps.length}
       />
 
@@ -159,26 +165,41 @@ export default async function Home({ searchParams }: HomeProps) {
 
 function DashboardSummary({
   applied,
+  tracked,
   responseRate,
+  responded,
+  responseDenominator,
   followUpsDue
 }: {
   applied: number;
+  tracked: number;
   responseRate: string;
+  responded: number;
+  responseDenominator: number;
   followUpsDue: number;
 }) {
   return (
     <section className="summary-bar" aria-label="Dashboard summary">
-      <div>
+      <div className="summary-feature">
         <span>Applied</span>
         <strong>{applied}</strong>
+        <p className="summary-context">{tracked} tracked in total</p>
       </div>
       <div>
         <span>Response rate</span>
         <strong>{responseRate}</strong>
+        <p className="summary-context">
+          {responseDenominator > 0
+            ? `${responded} of ${responseDenominator} replied`
+            : "No replies yet"}
+        </p>
       </div>
       <div>
         <span>Follow-ups due</span>
         <strong>{followUpsDue}</strong>
+        <p className="summary-context">
+          {followUpsDue === 0 ? "You are all caught up" : "Needs your attention"}
+        </p>
       </div>
     </section>
   );
