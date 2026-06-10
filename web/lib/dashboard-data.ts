@@ -3,6 +3,12 @@ import "server-only";
 import { getFurthestActiveStage } from "./application-stages";
 import { buildFollowUpItems } from "./followups";
 import { buildInsightsData, type InsightsData } from "./insights-calc";
+import {
+  buildWarmPathMatches,
+  isOutreachStage,
+  type OutreachStage,
+  type WarmPathMatch
+} from "./networking";
 import { buildPerformanceData, type PerformanceData } from "./performance-calc";
 import { createSupabaseServerClient } from "./supabase";
 import { stageRank, type Stage } from "./stages";
@@ -82,6 +88,9 @@ export type ContactRow = {
   email: string | null;
   linkedin_url: string | null;
   relationship: Relationship | null;
+  school: string | null;
+  past_companies: string[];
+  outreach_stage: OutreachStage | null;
   application_id: string | null;
   notes: string | null;
   last_contacted: string | null;
@@ -441,7 +450,7 @@ export async function getFollowUpsData(quietDays = 14) {
 
   return buildFollowUpItems(
     normalizeApplications(applicationsResponse.data),
-    (contactsResponse.data ?? []) as ContactRow[],
+    normalizeContacts(contactsResponse.data),
     new Date(),
     quietDays
   );
@@ -469,7 +478,7 @@ export async function getNetworkData() {
 
   const applications = normalizeApplications(applicationsResponse.data);
   return {
-    contacts: linkContactsToApplications((contactsResponse.data ?? []) as ContactRow[], applications),
+    contacts: linkContactsToApplications(normalizeContacts(contactsResponse.data), applications),
     applications: applications.map((application) => ({
       id: application.id,
       company: application.company,
@@ -487,6 +496,8 @@ export async function getApplicationDetail(id: string) {
     eventsResponse,
     mergeTargetsResponse,
     contactsResponse,
+    allContactsResponse,
+    educationResponse,
     profileResponse
   ] =
     await Promise.all([
@@ -513,6 +524,14 @@ export async function getApplicationDetail(id: string) {
         .eq("application_id", id)
         .order("next_follow_up", { ascending: true, nullsFirst: false }),
       supabase
+        .from("contacts")
+        .select("*")
+        .order("name", { ascending: true }),
+      supabase
+        .from("education")
+        .select("school")
+        .order("sort_order", { ascending: true }),
+      supabase
         .from("profile")
         .select("resume_text")
         .eq("id", 1)
@@ -524,20 +543,35 @@ export async function getApplicationDetail(id: string) {
     eventsResponse.error ||
     mergeTargetsResponse.error ||
     contactsResponse.error ||
+    allContactsResponse.error ||
+    educationResponse.error ||
     profileResponse.error
   ) {
     throw new Error("Could not load application detail.");
   }
 
+  const application = applicationResponse.data
+    ? normalizeApplications([applicationResponse.data])[0]
+    : null;
+  const allContacts = normalizeContacts(allContactsResponse.data);
+  const userSchools = normalizeEducation(educationResponse.data)
+    .map((education) => education.school)
+    .filter((school): school is string => Boolean(school));
+
   return {
-    application: applicationResponse.data
-      ? normalizeApplications([applicationResponse.data])[0]
-      : null,
+    application,
     events: (eventsResponse.data ?? []) as EmailEventRow[],
     mergeTargets: normalizeApplications(mergeTargetsResponse.data).filter(
       (application) => application.id !== id
     ),
-    contacts: (contactsResponse.data ?? []) as ContactRow[],
+    contacts: normalizeContacts(contactsResponse.data),
+    warmPathMatches: application
+      ? buildWarmPathMatches({
+          applicationCompany: application.company,
+          contacts: allContacts,
+          userSchools
+        })
+      : ([] as WarmPathMatch[]),
     masterResumeText:
       typeof profileResponse.data?.resume_text === "string"
         ? profileResponse.data.resume_text
@@ -602,6 +636,19 @@ function normalizeRequirementMatches(value: unknown): RequirementMatchRow[] {
 
 function isRequirementStatus(value: unknown): value is RequirementMatchRow["status"] {
   return value === "met" || value === "partial" || value === "missing";
+}
+
+function normalizeContacts(rows: unknown): ContactRow[] {
+  return ((rows ?? []) as ContactRow[]).map((row) => ({
+    ...row,
+    school: row.school ?? null,
+    past_companies: Array.isArray(row.past_companies) ? row.past_companies : [],
+    outreach_stage: isOutreachStage(row.outreach_stage) ? row.outreach_stage : null,
+    application_id: row.application_id ?? null,
+    notes: row.notes ?? null,
+    last_contacted: row.last_contacted ?? null,
+    next_follow_up: row.next_follow_up ?? null
+  }));
 }
 
 function normalizeScreenerAnswers(rows: unknown): ScreenerAnswerRow[] {

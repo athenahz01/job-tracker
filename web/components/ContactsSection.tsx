@@ -13,6 +13,11 @@ import type {
   ContactRow,
   ContactWithApplication
 } from "../lib/dashboard-data";
+import {
+  outreachStageLabel,
+  outreachStages,
+  type OutreachStage
+} from "../lib/networking";
 import { relationships } from "../lib/tracker";
 
 type ContactsSectionProps = {
@@ -22,6 +27,7 @@ type ContactsSectionProps = {
   applications: ApplicationSummary[];
   returnTo: string;
   linkedApplicationId?: string;
+  showReferralCheatSheet?: boolean;
 };
 
 export default function ContactsSection({
@@ -30,7 +36,8 @@ export default function ContactsSection({
   contacts,
   applications,
   returnTo,
-  linkedApplicationId
+  linkedApplicationId,
+  showReferralCheatSheet = false
 }: ContactsSectionProps) {
   return (
     <section className="network-section" aria-labelledby="network-heading">
@@ -52,6 +59,8 @@ export default function ContactsSection({
         />
       </details>
 
+      {showReferralCheatSheet ? <ReferralCheatSheet /> : null}
+
       <div className="table-scroll">
         <table className="contacts-table">
           <thead>
@@ -60,6 +69,8 @@ export default function ContactsSection({
               <th scope="col">Company</th>
               <th scope="col">Title</th>
               <th scope="col">Relationship</th>
+              <th scope="col">Pipeline</th>
+              <th scope="col">School</th>
               <th scope="col">Linked application</th>
               <th scope="col">Last contacted</th>
               <th scope="col">Next follow-up</th>
@@ -76,9 +87,20 @@ export default function ContactsSection({
                       <strong>{contact.name}</strong>
                       {contact.email ? <p className="muted">{contact.email}</p> : null}
                     </td>
-                    <td>{contact.company || "Not set"}</td>
+                    <td>
+                      {contact.company || "Not set"}
+                      {contact.past_companies.length ? (
+                        <p className="muted">Past: {contact.past_companies.join(", ")}</p>
+                      ) : null}
+                    </td>
                     <td>{contact.title || "Not set"}</td>
                     <td>{relationshipLabel(contact.relationship)}</td>
+                    <td>
+                      <span className={`outreach-pill ${outreachClass(contact.outreach_stage)}`}>
+                        {outreachStageLabel(contact.outreach_stage)}
+                      </span>
+                    </td>
+                    <td>{contact.school || "Not set"}</td>
                     <td>
                       {application ? (
                         <Link href={`/applications/${application.id}`}>
@@ -97,6 +119,14 @@ export default function ContactsSection({
                         kind="contact-outreach"
                         label="Draft outreach"
                         contactId={contact.id}
+                      />
+                      <DraftActionPanel
+                        compact
+                        kind="networking"
+                        variant="follow_up_nudge"
+                        label="Draft nudge"
+                        contactId={contact.id}
+                        applicationId={application?.id}
                       />
                       <details className="row-editor">
                         <summary>Edit</summary>
@@ -133,7 +163,7 @@ export default function ContactsSection({
               })
             ) : (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={10}>
                   <p className="empty-state">No contacts yet.</p>
                 </td>
               </tr>
@@ -193,6 +223,25 @@ function ContactForm({
           ))}
         </select>
       </label>
+      <label className="field">
+        <span>Outreach stage</span>
+        <select name="outreachStage" defaultValue={contact?.outreach_stage ?? ""}>
+          <option value="">Not set</option>
+          {outreachStages.map((stage) => (
+            <option key={stage} value={stage}>
+              {outreachStageLabel(stage)}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="field">
+        <span>School</span>
+        <input name="school" defaultValue={contact?.school ?? ""} />
+      </label>
+      <label className="field">
+        <span>Past companies</span>
+        <input name="pastCompanies" defaultValue={contact?.past_companies.join(", ") ?? ""} />
+      </label>
       {linkedApplicationId ? (
         <input type="hidden" name="applicationId" value={linkedApplicationId} />
       ) : (
@@ -228,6 +277,35 @@ function ContactForm({
   );
 }
 
+function ReferralCheatSheet() {
+  return (
+    <section className="referral-cheat-sheet" aria-labelledby="referral-cheat-sheet-heading">
+      <div>
+        <p className="eyebrow">Referral cheat sheet</p>
+        <h3 id="referral-cheat-sheet-heading">Make The Ask</h3>
+      </div>
+      <div className="referral-cheat-grid">
+        <article>
+          <h4>Talking points</h4>
+          <p>Lead with the role, why it fits, and the one specific help you are asking for.</p>
+        </article>
+        <article>
+          <h4>Informational call</h4>
+          <p>Ask for 15 minutes, offer two windows, and make it easy for them to say no.</p>
+        </article>
+        <article>
+          <h4>Referral ask</h4>
+          <p>Attach the posting and resume, then ask whether they feel comfortable referring you.</p>
+        </article>
+        <article>
+          <h4>Follow up</h4>
+          <p>Send one short nudge after a few days, then let it rest unless they reply.</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 function contactApplication(
   contact: ContactRow | ContactWithApplication,
   applications: ApplicationSummary[]
@@ -246,4 +324,8 @@ function relationshipLabel(value: string | null) {
     .split("_")
     .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
     .join(" ");
+}
+
+function outreachClass(value: OutreachStage | null) {
+  return value ? `outreach-${value.replace("_", "-")}` : "outreach-empty";
 }

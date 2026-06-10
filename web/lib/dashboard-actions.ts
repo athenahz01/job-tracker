@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { normalizeCompanyName } from "./company";
 import { requireDashboardAccess } from "./dashboard-auth";
+import { isOutreachStage } from "./networking";
 import {
   generateTailoredResumeVariant,
   saveProfileResume,
@@ -232,6 +233,37 @@ export async function updateApplicationRoleAction(formData: FormData) {
 
   revalidateApplicationViews(id);
   redirectWithStatus(id, "role_saved");
+}
+
+export async function updateApplicationUrlAction(formData: FormData) {
+  await requireDashboardAccess();
+
+  const id = readString(formData.get("applicationId"));
+  if (!isUuid(id)) {
+    redirectWithStatus(id, "invalid");
+  }
+
+  const url = cleanOptionalUrl(formData.get("url"));
+  if (url === "invalid") {
+    redirectWithStatus(id, "url_invalid");
+  }
+
+  const supabase = createSupabaseServerClient();
+  const { error } = await supabase
+    .from("applications")
+    .update({
+      url,
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", id)
+    .is("merged_into_id", null);
+
+  if (error) {
+    redirectWithStatus(id, "url_error");
+  }
+
+  revalidateApplicationViews(id);
+  redirectWithStatus(id, "url_saved");
 }
 
 export async function saveProfileAction(formData: FormData) {
@@ -676,6 +708,9 @@ function readContactPayload(formData: FormData) {
     email: cleanOptionalText(formData.get("email"), 240),
     linkedin_url: cleanOptionalText(formData.get("linkedinUrl"), 500),
     relationship: optionalRelationship(readString(formData.get("relationship"))),
+    school: cleanOptionalText(formData.get("school"), 240),
+    past_companies: parseTags(formData.get("pastCompanies")),
+    outreach_stage: optionalOutreachStage(readString(formData.get("outreachStage"))),
     application_id: applicationId,
     notes: cleanOptionalText(formData.get("notes"), 4000),
     last_contacted: cleanOptionalDate(formData.get("lastContacted")),
@@ -740,6 +775,20 @@ function cleanText(value: FormDataEntryValue | null, maxLength: number) {
   return text ? text.slice(0, maxLength) : null;
 }
 
+function cleanOptionalUrl(value: FormDataEntryValue | null) {
+  const text = cleanText(value, 2000);
+  if (!text) {
+    return null;
+  }
+
+  try {
+    const url = new URL(text);
+    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : "invalid";
+  } catch {
+    return "invalid";
+  }
+}
+
 function cleanOptionalDate(value: FormDataEntryValue | null) {
   if (typeof value !== "string" || !value.trim()) {
     return null;
@@ -787,6 +836,10 @@ function optionalPriority(value: string) {
 
 function optionalRelationship(value: string) {
   return isRelationship(value) ? value : null;
+}
+
+function optionalOutreachStage(value: string) {
+  return isOutreachStage(value) ? value : null;
 }
 
 function optionalUuid(value: string) {

@@ -14,11 +14,13 @@ import {
   scoreApplicationFitAction,
   scoreApplicationRequirementsAction,
   tailorApplicationAction,
+  updateApplicationUrlAction,
   updateApplicationRoleAction,
   updateApplicationTrackerFieldsAction
 } from "../../../lib/dashboard-actions";
 import { getApplicationDetail } from "../../../lib/dashboard-data";
 import { formatConfidence, formatDate, gmailUrl, timeAgo } from "../../../lib/format";
+import { outreachStageLabel, type WarmPathMatch } from "../../../lib/networking";
 import { buildResumeDiff, type ResumeDiffLine } from "../../../lib/resume-diff";
 import { priorityClass, stageClass } from "../../../lib/style-utils";
 import { stages } from "../../../lib/stages";
@@ -35,7 +37,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
   const { id } = await params;
   const query = (await searchParams) ?? {};
   const status = readSingle(query.status);
-  const { application, events, mergeTargets, contacts, masterResumeText } =
+  const { application, events, mergeTargets, contacts, warmPathMatches, masterResumeText } =
     await getApplicationDetail(id);
 
   if (!application) {
@@ -108,6 +110,20 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
             </label>
             <button className="primary-button" type="submit">
               Save role
+            </button>
+          </form>
+        </details>
+
+        <details className="inline-editor company-rename-editor">
+          <summary>Edit posting link</summary>
+          <form action={updateApplicationUrlAction} className="form-row">
+            <input type="hidden" name="applicationId" value={application.id} />
+            <label className="field compact-field">
+              <span>Posting URL</span>
+              <input name="url" type="url" defaultValue={application.url ?? ""} />
+            </label>
+            <button className="primary-button" type="submit">
+              Save link
             </button>
           </form>
         </details>
@@ -405,6 +421,10 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       ) : null}
 
       {!isRecruiterOutreach ? (
+        <WhoCanHelpPanel applicationId={application.id} matches={warmPathMatches} />
+      ) : null}
+
+      {!isRecruiterOutreach ? (
         <ContactsSection
           eyebrow="Network"
           title="Linked Contacts"
@@ -462,6 +482,97 @@ function DetailValue({ label, children }: { label: string; children: ReactNode }
       <dt>{label}</dt>
       <dd>{children}</dd>
     </div>
+  );
+}
+
+function WhoCanHelpPanel({
+  applicationId,
+  matches
+}: {
+  applicationId: string;
+  matches: WarmPathMatch[];
+}) {
+  return (
+    <section className="action-panel who-can-help-panel" aria-labelledby="who-can-help-heading">
+      <div className="section-heading ai-heading">
+        <div>
+          <p className="eyebrow">Warm path</p>
+          <h2 id="who-can-help-heading">Who Can Help</h2>
+          <p className="muted">Only contacts you entered yourself. Drafts are copy-only.</p>
+        </div>
+        <span className="flow-count">{matches.length} matches</span>
+      </div>
+
+      {matches.length ? (
+        <div className="warm-path-list">
+          {matches.map((match) => (
+            <article className="warm-path-card" key={match.contact.id}>
+              <div className="warm-path-top">
+                <div>
+                  <h3>{match.contact.name}</h3>
+                  <p className="muted">
+                    {[match.contact.title, match.contact.company].filter(Boolean).join(" at ") ||
+                      "Contact"}
+                  </p>
+                </div>
+                <span className={`outreach-pill ${outreachClass(match.contact.outreach_stage)}`}>
+                  {outreachStageLabel(match.contact.outreach_stage)}
+                </span>
+              </div>
+              <div className="chip-row">
+                {match.reasons.map((reason) => (
+                  <span className="tag-chip" key={reason}>
+                    {reason}
+                  </span>
+                ))}
+              </div>
+              {match.contact.past_companies.length ? (
+                <p className="muted">Past: {match.contact.past_companies.join(", ")}</p>
+              ) : null}
+              <div className="warm-draft-grid">
+                <DraftActionPanel
+                  compact
+                  kind="networking"
+                  variant="referral_request"
+                  label="Referral ask"
+                  contactId={match.contact.id}
+                  applicationId={applicationId}
+                />
+                <DraftActionPanel
+                  compact
+                  kind="networking"
+                  variant="warm_intro"
+                  label="Intro ask"
+                  contactId={match.contact.id}
+                  applicationId={applicationId}
+                />
+                <DraftActionPanel
+                  compact
+                  kind="networking"
+                  variant="coffee_chat"
+                  label="Coffee chat"
+                  contactId={match.contact.id}
+                  applicationId={applicationId}
+                />
+                <DraftActionPanel
+                  compact
+                  kind="networking"
+                  variant="follow_up_nudge"
+                  label="Follow-up"
+                  contactId={match.contact.id}
+                  applicationId={applicationId}
+                />
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state">
+          No warm-path contacts found yet. Add contacts with current companies, past companies, or
+          schools in the Network tab.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -578,6 +689,10 @@ function diffPrefix(type: ResumeDiffLine["type"]) {
   return " ";
 }
 
+function outreachClass(value: WarmPathMatch["contact"]["outreach_stage"]) {
+  return value ? `outreach-${value.replace("_", "-")}` : "outreach-empty";
+}
+
 function statusMessage(status: string) {
   const messages: Record<string, string> = {
     stage_saved: "Stage saved and locked.",
@@ -593,6 +708,9 @@ function statusMessage(status: string) {
     tailor_error: "The tailoring drafts could not be saved.",
     tailored_resume_saved: "Tailored resume variant saved.",
     tailored_resume_error: "The tailored resume variant could not be saved.",
+    url_saved: "Posting link saved.",
+    url_invalid: "Enter a valid http or https posting link.",
+    url_error: "The posting link could not be saved.",
     company_saved: "Company name saved.",
     company_error: "The company name could not be saved.",
     role_saved: "Role saved.",

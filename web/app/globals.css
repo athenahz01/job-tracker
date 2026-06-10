@@ -773,6 +773,15 @@ tr[tabindex]:focus-visible {
   white-space: normal;
 }
 
+.posting-link {
+  display: block;
+  width: max-content;
+  margin-top: 4px;
+  color: var(--accent-dark);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .stage-pill,
 .priority-pill,
 .tag-chip {
@@ -842,6 +851,42 @@ tr[tabindex]:focus-visible {
 
 .priority-low {
   background: #e8eeeb;
+  color: #596862;
+}
+
+.outreach-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.outreach-to-reach {
+  background: #eef3f7;
+  color: #4f6370;
+}
+
+.outreach-reached {
+  background: #e8f1fb;
+  color: #245f93;
+}
+
+.outreach-replied {
+  background: #fff0bd;
+  color: #8a6500;
+}
+
+.outreach-referred {
+  background: #ddf4e3;
+  color: #236b38;
+}
+
+.outreach-empty {
+  background: #ecefed;
   color: #596862;
 }
 
@@ -1111,6 +1156,80 @@ tr[tabindex]:focus-visible {
 .network-section {
   margin-top: 16px;
   padding: 16px;
+}
+
+.referral-cheat-sheet {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfb;
+  padding: 14px;
+}
+
+.referral-cheat-sheet h3,
+.referral-cheat-sheet h4,
+.warm-path-card h3 {
+  margin: 0;
+}
+
+.referral-cheat-sheet h3 {
+  margin-top: 4px;
+  font-size: 18px;
+}
+
+.referral-cheat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.referral-cheat-grid article {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 12px;
+}
+
+.referral-cheat-grid p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.who-can-help-panel {
+  display: grid;
+}
+
+.warm-path-list,
+.warm-path-card,
+.warm-draft-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.warm-path-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.warm-path-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.warm-path-card p {
+  margin: 4px 0 0;
+}
+
+.warm-draft-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
 }
 
 .action-panel h2,

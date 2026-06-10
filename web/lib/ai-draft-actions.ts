@@ -5,6 +5,8 @@ import {
   buildColdOutreachPrompt,
   buildContactOutreachPrompt,
   buildFollowUpDraftPrompt,
+  buildNetworkingDraftPrompt,
+  type NetworkingDraftVariant,
   DRAFTING_SYSTEM_PROMPT
 } from "./draft-prompts";
 import { requireDashboardAccess } from "./dashboard-auth";
@@ -96,6 +98,54 @@ export async function draftContactOutreachAction(
   );
 }
 
+export async function draftNetworkingMessageAction(
+  _state: DraftActionState,
+  formData: FormData
+): Promise<DraftActionState> {
+  await requireDashboardAccess();
+
+  const variant = readNetworkingVariant(formData.get("variant"));
+  if (!variant) {
+    return draftError("Choose a valid draft type.");
+  }
+
+  const contact = await loadContact(readString(formData.get("contactId")));
+  if (!contact) {
+    return draftError("Could not load that contact.");
+  }
+
+  const applicationId = readString(formData.get("applicationId"));
+  const targetApplication = applicationId ? await loadApplication(applicationId) : null;
+  if (applicationId && !targetApplication) {
+    return draftError("Could not load that application.");
+  }
+  if (variant !== "follow_up_nudge" && !targetApplication) {
+    return draftError("Choose a target application for this draft.");
+  }
+
+  return generateDraft(
+    buildNetworkingDraftPrompt({
+      variant,
+      name: contact.name,
+      company: contact.company,
+      title: contact.title,
+      relationship: contact.relationship,
+      school: contact.school,
+      pastCompanies: contact.past_companies,
+      outreachStage: contact.outreach_stage,
+      notes: contact.notes,
+      targetApplication: targetApplication
+        ? {
+            company: targetApplication.company,
+            role: targetApplication.role,
+            stage: targetApplication.stage,
+            url: targetApplication.url
+          }
+        : null
+    })
+  );
+}
+
 async function generateDraft(prompt: string): Promise<DraftActionState> {
   try {
     const text = await requestClaudeText({
@@ -171,6 +221,18 @@ function cleanDraft(value: string) {
 
 function readString(value: FormDataEntryValue | null) {
   return typeof value === "string" ? value : "";
+}
+
+function readNetworkingVariant(value: FormDataEntryValue | null): NetworkingDraftVariant | null {
+  if (
+    value === "referral_request" ||
+    value === "warm_intro" ||
+    value === "coffee_chat" ||
+    value === "follow_up_nudge"
+  ) {
+    return value;
+  }
+  return null;
 }
 
 function isUuid(value: string) {

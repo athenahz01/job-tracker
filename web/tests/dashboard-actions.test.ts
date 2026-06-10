@@ -139,6 +139,7 @@ import {
   updateEducationAction,
   updateScreenerAnswerAction,
   updateWorkExperienceAction,
+  updateApplicationUrlAction,
   updateApplicationRoleAction
 } from "../lib/dashboard-actions";
 import { requireDashboardAccess } from "../lib/dashboard-auth";
@@ -184,6 +185,9 @@ describe("dashboard actions", () => {
     formData.set("title", "Recruiter");
     formData.set("email", "riley@example.com");
     formData.set("relationship", "recruiter");
+    formData.set("school", "Rutgers University");
+    formData.set("pastCompanies", "Bravo, Cobalt, Bravo");
+    formData.set("outreachStage", "to_reach");
     formData.set("applicationId", applicationId);
     formData.set("nextFollowUp", "2026-06-08");
 
@@ -200,6 +204,9 @@ describe("dashboard actions", () => {
           title: "Recruiter",
           email: "riley@example.com",
           relationship: "recruiter",
+          school: "Rutgers University",
+          past_companies: ["Bravo", "Cobalt"],
+          outreach_stage: "to_reach",
           application_id: applicationId,
           next_follow_up: "2026-06-08"
         })
@@ -256,6 +263,40 @@ describe("dashboard actions", () => {
       path: "/?status=invalid"
     });
 
+    expect(mockSupabase.state.updates).toEqual([]);
+  });
+
+  it("updates an application posting URL through a gated action", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("url", "https://jobs.example.com/acme/product-analyst");
+
+    await expect(updateApplicationUrlAction(formData)).rejects.toMatchObject({
+      path: `/applications/${applicationId}?status=url_saved`
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
+    expect(mockSupabase.state.updates).toEqual([
+      {
+        table: "applications",
+        value: expect.objectContaining({
+          url: "https://jobs.example.com/acme/product-analyst",
+          updated_at: expect.any(String)
+        })
+      }
+    ]);
+  });
+
+  it("rejects an invalid posting URL without writing", async () => {
+    const formData = new FormData();
+    formData.set("applicationId", applicationId);
+    formData.set("url", "javascript:alert(1)");
+
+    await expect(updateApplicationUrlAction(formData)).rejects.toMatchObject({
+      path: `/applications/${applicationId}?status=url_invalid`
+    });
+
+    expect(mockedRequireDashboardAccess).toHaveBeenCalled();
     expect(mockSupabase.state.updates).toEqual([]);
   });
 

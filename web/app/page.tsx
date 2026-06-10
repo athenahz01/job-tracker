@@ -138,6 +138,7 @@ export default async function Home({ searchParams }: HomeProps) {
             contacts={network.contacts}
             applications={network.applications}
             returnTo="/?view=network"
+            showReferralCheatSheet
           />
           <RecruiterOutreach outreach={recruiterOutreach} />
         </>

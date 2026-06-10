@@ -198,6 +198,18 @@ export default function ApplicationTableView({ applications, state }: Applicatio
                 >
                   <td>
                     <strong>{application.company}</strong>
+                    {application.url ? (
+                      <a
+                        className="posting-link"
+                        href={application.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(event) => event.stopPropagation()}
+                        onKeyDown={(event) => event.stopPropagation()}
+                      >
+                        Open posting
+                      </a>
+                    ) : null}
                   </td>
                   <td>{application.role || "Not set"}</td>
                   <td>

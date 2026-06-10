@@ -1,4 +1,5 @@
 import type { Relationship } from "./tracker";
+import type { OutreachStage } from "./networking";
 
 export type DraftApplicationInput = {
   company: string;
@@ -14,10 +15,30 @@ export type DraftContactInput = {
   company: string | null;
   title: string | null;
   relationship: Relationship | null;
+  school?: string | null;
+  pastCompanies?: string[];
+  outreachStage?: OutreachStage | null;
+  notes?: string | null;
   linkedApplication?: {
     company: string;
     role: string | null;
     stage: string;
+  } | null;
+};
+
+export type NetworkingDraftVariant =
+  | "referral_request"
+  | "warm_intro"
+  | "coffee_chat"
+  | "follow_up_nudge";
+
+export type NetworkingDraftInput = DraftContactInput & {
+  variant: NetworkingDraftVariant;
+  targetApplication: {
+    company: string;
+    role: string | null;
+    stage: string;
+    url: string | null;
   } | null;
 };
 
@@ -56,6 +77,30 @@ export function buildContactOutreachPrompt(input: DraftContactInput) {
   ].join("\n");
 }
 
+export function buildNetworkingDraftPrompt(input: NetworkingDraftInput) {
+  const target = input.targetApplication
+    ? `${input.targetApplication.company}, ${input.targetApplication.role || "role not set"}, ${input.targetApplication.stage}`
+    : "Not set";
+
+  return [
+    `Draft a ${variantLabel(input.variant)} message to this contact.`,
+    "Keep it under 120 words, warm, specific, and easy to personalize.",
+    "Do not imply any message was or will be sent automatically.",
+    "Ground the message only in the provided relationship, contact, and role facts.",
+    "",
+    `Contact name: ${input.name}`,
+    `Contact company: ${input.company || "Not set"}`,
+    `Contact title: ${input.title || "Not set"}`,
+    `Relationship: ${input.relationship || "Not set"}`,
+    `School: ${input.school || "Not set"}`,
+    `Past companies: ${input.pastCompanies?.length ? input.pastCompanies.join(", ") : "Not set"}`,
+    `Outreach stage: ${input.outreachStage || "Not set"}`,
+    `Contact notes: ${input.notes || "Not set"}`,
+    `Target application: ${target}`,
+    `Posting link: ${input.targetApplication?.url || "Not set"}`
+  ].join("\n");
+}
+
 export function buildColdOutreachPrompt(input: DraftApplicationInput) {
   return [
     "Suggest the type of person worth contacting for this application, then draft a short cold outreach message.",
@@ -67,4 +112,14 @@ export function buildColdOutreachPrompt(input: DraftApplicationInput) {
     `Current stage: ${input.stage}`,
     `Last activity: ${input.lastActivity || "Not set"}`
   ].join("\n");
+}
+
+function variantLabel(variant: NetworkingDraftVariant) {
+  const labels: Record<NetworkingDraftVariant, string> = {
+    referral_request: "referral request",
+    warm_intro: "warm introduction ask",
+    coffee_chat: "coffee chat or informational call request",
+    follow_up_nudge: "follow-up nudge"
+  };
+  return labels[variant];
 }
