@@ -3,6 +3,7 @@ import "server-only";
 import { getFurthestActiveStage } from "./application-stages";
 import { buildFollowUpItems } from "./followups";
 import { buildInsightsData, type InsightsData } from "./insights-calc";
+import { buildPerformanceData, type PerformanceData } from "./performance-calc";
 import { createSupabaseServerClient } from "./supabase";
 import { stageRank, type Stage } from "./stages";
 import { type Priority, type Relationship } from "./tracker";
@@ -263,6 +264,40 @@ export async function getInsightsData(): Promise<InsightsData> {
   }
 
   return buildInsightsData(applications, (eventsResponse.data ?? []) as EmailEventRow[]);
+}
+
+export async function getPerformanceData(): Promise<PerformanceData> {
+  const supabase = createSupabaseServerClient();
+  const applicationsResponse = await supabase
+    .from("applications")
+    .select(
+      "id, source, stage, kind, merged_into_id, first_seen, resume_version, tags"
+    )
+    .eq("kind", "application")
+    .is("merged_into_id", null);
+
+  if (applicationsResponse.error) {
+    throw new Error("Could not load performance applications.");
+  }
+
+  const applications = normalizeApplications(applicationsResponse.data);
+  if (!applications.length) {
+    return buildPerformanceData([], []);
+  }
+
+  const eventsResponse = await supabase
+    .from("email_events")
+    .select("application_id, detected_stage, received_at")
+    .in(
+      "application_id",
+      applications.map((application) => application.id)
+    );
+
+  if (eventsResponse.error) {
+    throw new Error("Could not load performance events.");
+  }
+
+  return buildPerformanceData(applications, (eventsResponse.data ?? []) as EmailEventRow[]);
 }
 
 export async function getProfileData(): Promise<ProfileData> {

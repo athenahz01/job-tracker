@@ -312,6 +312,100 @@ tr[tabindex]:focus-visible {
   font-size: 20px;
 }
 
+.performance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.performance-summary-card {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.performance-summary-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.performance-summary-card strong {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.performance-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.performance-table {
+  width: 100%;
+  min-width: 840px;
+  border-collapse: separate;
+  border-spacing: 0;
+  background: #fff;
+  font-size: 13px;
+}
+
+.performance-table th,
+.performance-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 10px 11px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.performance-table th {
+  background: #f7faf8;
+  color: #4c5a55;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.performance-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.performance-rate-cell {
+  display: grid;
+  min-width: 150px;
+  gap: 6px;
+}
+
+.performance-rate-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.performance-rate-top span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.performance-bar-track {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #e9eeeb;
+}
+
+.performance-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+
 .flow-node-label {
   fill: var(--text);
   font-size: 14px;

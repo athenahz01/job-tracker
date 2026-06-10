@@ -6,6 +6,7 @@ import AssistantView from "../components/AssistantView";
 import ContactsSection from "../components/ContactsSection";
 import FollowUpsView from "../components/FollowUpsView";
 import InsightsView from "../components/InsightsView";
+import PerformanceView from "../components/PerformanceView";
 import ProfileView from "../components/ProfileView";
 import {
   getApplicationFlowData,
@@ -13,6 +14,7 @@ import {
   getFollowUpsData,
   getInsightsData,
   getNetworkData,
+  getPerformanceData,
   getProfileData,
   type ApplicationRow
 } from "../lib/dashboard-data";
@@ -33,6 +35,7 @@ const tabs: { view: DashboardView; label: string }[] = [
   { view: "flow", label: "Flow" },
   { view: "assistant", label: "Assistant" },
   { view: "insights", label: "Insights" },
+  { view: "performance", label: "Performance" },
   { view: "follow-ups", label: "Follow-ups" },
   { view: "network", label: "Network" },
   { view: "profile", label: "Profile" }
@@ -42,13 +45,21 @@ export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
   const state = parseTableState(params);
   const status = readSingle(params.status);
-  const [{ applications, recruiterOutreach }, applicationFlow, followUps, network, profileData, insights] =
-    await Promise.all([
+  const [
+    { applications, recruiterOutreach },
+    applicationFlow,
+    followUps,
+    network,
+    profileData,
+    performance,
+    insights
+  ] = await Promise.all([
       getDashboardData(),
       getApplicationFlowData(),
       getFollowUpsData(state.quietDays),
       getNetworkData(),
       state.view === "profile" ? getProfileData() : Promise.resolve(null),
+      state.view === "performance" ? getPerformanceData() : Promise.resolve(null),
       getInsightsData()
     ]);
   const boardApplications = filterAndSortApplications(
@@ -109,6 +120,10 @@ export default async function Home({ searchParams }: HomeProps) {
       {state.view === "assistant" ? <AssistantView /> : null}
 
       {state.view === "insights" ? <InsightsView data={insights} /> : null}
+
+      {state.view === "performance" && performance ? (
+        <PerformanceView data={performance} />
+      ) : null}
 
       {state.view === "follow-ups" ? (
         <>

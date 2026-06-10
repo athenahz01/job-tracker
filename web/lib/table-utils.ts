@@ -7,6 +7,7 @@ export type DashboardView =
   | "board"
   | "flow"
   | "assistant"
+  | "performance"
   | "follow-ups"
   | "network"
   | "profile"
@@ -50,6 +51,7 @@ const views: DashboardView[] = [
   "board",
   "flow",
   "assistant",
+  "performance",
   "follow-ups",
   "network",
   "profile",
