@@ -41,7 +41,7 @@ export default function ProfileView({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Profile</p>
-            <h2 id="profile-heading">Master Resume</h2>
+            <h2 id="profile-heading">Master resume</h2>
           </div>
           <span className="muted">
             {profile?.resume_text
@@ -213,7 +213,7 @@ export default function ProfileView({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Voluntary</p>
-            <h2 id="equal-employment-heading">Equal Employment</h2>
+            <h2 id="equal-employment-heading">Equal employment</h2>
           </div>
           <p className="muted">Stored exactly as you choose to answer.</p>
         </div>
@@ -305,7 +305,7 @@ export default function ProfileView({
         <div className="section-heading">
           <div>
             <p className="eyebrow">History</p>
-            <h2 id="work-heading">Work Experience</h2>
+            <h2 id="work-heading">Work experience</h2>
           </div>
           <span className="muted">{workExperience.length} saved</span>
         </div>
@@ -381,7 +381,7 @@ export default function ProfileView({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Screener library</p>
-            <h2 id="answer-bank-heading">Answer Bank</h2>
+            <h2 id="answer-bank-heading">Answer bank</h2>
           </div>
           <span className="muted">{answers.length} saved</span>
         </div>

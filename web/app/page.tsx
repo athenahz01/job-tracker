@@ -386,7 +386,7 @@ function RecruiterOutreach({ outreach }: { outreach: ApplicationRow[] }) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">Separate bucket</p>
-          <h2>Recruiter Outreach</h2>
+          <h2>Recruiter outreach</h2>
         </div>
         <p className="muted">Personal outreach that is not part of the application board.</p>
       </div>

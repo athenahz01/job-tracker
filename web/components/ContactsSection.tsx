@@ -81,9 +81,11 @@ export default function ContactsSection({
                         "Contact"}
                     </p>
                   </div>
-                  <span className={`outreach-pill ${outreachClass(contact.outreach_stage)}`}>
-                    {outreachStageLabel(contact.outreach_stage)}
-                  </span>
+                  {contact.outreach_stage ? (
+                    <span className={`outreach-pill ${outreachClass(contact.outreach_stage)}`}>
+                      {outreachStageLabel(contact.outreach_stage)}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="chip-row">
@@ -303,7 +305,7 @@ function ReferralCheatSheet() {
     <section className="referral-cheat-sheet" aria-labelledby="referral-cheat-sheet-heading">
       <div>
         <p className="eyebrow">Referral cheat sheet</p>
-        <h3 id="referral-cheat-sheet-heading">Make The Ask</h3>
+        <h3 id="referral-cheat-sheet-heading">Make the ask</h3>
       </div>
       <div className="referral-cheat-grid">
         <article>

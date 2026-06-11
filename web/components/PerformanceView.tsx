@@ -57,7 +57,7 @@ function SkillGapPanel({ gaps }: { gaps: SkillGap[] }) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">What to learn</p>
-          <h3 id="skill-gaps-heading">Recurring Skill Gaps</h3>
+          <h3 id="skill-gaps-heading">Recurring skill gaps</h3>
         </div>
       </div>
 

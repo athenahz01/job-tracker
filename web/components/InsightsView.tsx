@@ -121,7 +121,7 @@ function DailyApplicationsChart({ data }: { data: InsightsData["dailyApplication
   const chartInnerWidth = dailyChartWidth - dailyChartPadding.left - dailyChartPadding.right;
   const chartInnerHeight = dailyChartHeight - dailyChartPadding.top - dailyChartPadding.bottom;
   const slotWidth = chartInnerWidth / data.length;
-  const barWidthValue = Math.max(4, Math.min(16, slotWidth * 0.66));
+  const barWidthValue = Math.max(3, Math.min(10, slotWidth * 0.5));
   const tickEvery = data.length > 30 ? 5 : data.length > 20 ? 4 : 3;
 
   return (
@@ -186,7 +186,11 @@ function DailyApplicationsChart({ data }: { data: InsightsData["dailyApplication
 function HighlightItem({ text }: { text: string }) {
   return (
     <li>
-      <span aria-hidden="true">i</span>
+      <span aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      </span>
       <p>{text}</p>
     </li>
   );

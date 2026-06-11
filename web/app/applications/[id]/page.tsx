@@ -216,7 +216,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           <div className="section-heading ai-heading">
             <div>
               <p className="eyebrow">Outreach</p>
-              <h2>Draft Helpers</h2>
+              <h2>Draft helpers</h2>
               <p className="muted">Suggestions only. Review and copy before sending.</p>
             </div>
           </div>
@@ -242,7 +242,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
           <div className="section-heading ai-heading">
             <div>
               <p className="eyebrow">Resume match</p>
-              <h2>Fit Score</h2>
+              <h2>Fit score</h2>
             </div>
             <div className="form-actions">
               <form action={scoreApplicationFitAction}>
@@ -366,7 +366,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       {!isRecruiterOutreach ? (
         <section className="action-panel tracker-editor">
           <div>
-            <h2>Tracker Fields</h2>
+            <h2>Tracker fields</h2>
             <p className="muted">Manual notes for planning, follow-ups, and search context.</p>
           </div>
           <form action={updateApplicationTrackerFieldsAction} className="tracker-form">
@@ -424,7 +424,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       {!isRecruiterOutreach ? (
         <section className="action-panel">
           <div>
-            <h2>Manual Stage</h2>
+            <h2>Manual stage</h2>
             <p className="muted">
               Setting a stage by hand locks it so the worker will not move it automatically.
             </p>
@@ -459,7 +459,7 @@ export default async function ApplicationDetail({ params, searchParams }: Detail
       {application.is_orphan && application.kind === "application" ? (
         <section className="action-panel">
           <div>
-            <h2>Merge Orphan</h2>
+            <h2>Merge orphan</h2>
             <p className="muted">
               Move this orphan's email events into an existing application. Nothing is deleted.
             </p>
@@ -504,7 +504,7 @@ function PostingBreakdownPanel({ breakdown }: { breakdown: PostingBreakdown }) {
       <section className="action-panel posting-breakdown-panel">
         <div>
           <p className="eyebrow">Posting</p>
-          <h2>Job Description</h2>
+          <h2>Job description</h2>
         </div>
         <p className="empty-state">No posting text has been saved yet.</p>
       </section>
@@ -516,7 +516,7 @@ function PostingBreakdownPanel({ breakdown }: { breakdown: PostingBreakdown }) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">Posting</p>
-          <h2 id="posting-breakdown-heading">Job Description</h2>
+          <h2 id="posting-breakdown-heading">Job description</h2>
           <p className="muted">Structured from saved posting text. Raw notes stay unchanged below.</p>
         </div>
       </div>
@@ -588,7 +588,7 @@ function WhoCanHelpPanel({
       <div className="section-heading ai-heading">
         <div>
           <p className="eyebrow">Warm path</p>
-          <h2 id="who-can-help-heading">Who Can Help</h2>
+          <h2 id="who-can-help-heading">Who can help</h2>
           <p className="muted">Only contacts you entered yourself. Drafts are copy-only.</p>
         </div>
         <span className="flow-count">{matches.length} matches</span>
@@ -683,7 +683,7 @@ function InterviewPrepPanel({
       <div className="section-heading ai-heading">
         <div>
           <p className="eyebrow">Interview</p>
-          <h2 id="interview-prep-heading">Interview Prep</h2>
+          <h2 id="interview-prep-heading">Interview prep</h2>
           <p className="muted">Role-specific prep grounded in your resume and the posting.</p>
         </div>
         <form action={generateInterviewPrepAction}>
@@ -844,7 +844,7 @@ function TailoredResumePanel({
       <div className="section-heading">
         <div>
           <p className="eyebrow">Resume variant</p>
-          <h3 id="tailored-resume-heading">Review Diff</h3>
+          <h3 id="tailored-resume-heading">Review diff</h3>
         </div>
         {generatedAt ? <span className="muted">Generated {formatDate(generatedAt)}</span> : null}
       </div>
