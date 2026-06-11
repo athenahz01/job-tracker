@@ -3,6 +3,7 @@ import { type Stage, stages } from "./stages";
 import { activeApplicationStages, isPriority, Priority } from "./tracker";
 
 export type DashboardView =
+  | "today"
   | "table"
   | "board"
   | "flow"
@@ -47,6 +48,7 @@ export type TableState = {
 };
 
 const views: DashboardView[] = [
+  "today",
   "table",
   "board",
   "flow",
@@ -82,7 +84,7 @@ export function parseTableState(
   const quietDaysValue = Number(readSingle(params.quietDays));
 
   return {
-    view: views.includes(viewValue as DashboardView) ? (viewValue as DashboardView) : "table",
+    view: views.includes(viewValue as DashboardView) ? (viewValue as DashboardView) : "today",
     filters: {
       stage: stages.includes(stageValue as Stage) ? (stageValue as Stage) : undefined,
       query: readSingle(params.q)?.trim() || undefined,

@@ -9,6 +9,8 @@ import FollowUpsView from "../components/FollowUpsView";
 import InsightsView from "../components/InsightsView";
 import PerformanceView from "../components/PerformanceView";
 import ProfileView from "../components/ProfileView";
+import Sidebar from "../components/Sidebar";
+import TodayView, { buildTodayData } from "../components/TodayView";
 import {
   getApplicationFlowData,
   getDashboardData,
@@ -21,7 +23,7 @@ import {
 } from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
 import { priorityClass, stageClass } from "../lib/style-utils";
-import { filterAndSortApplications, parseTableState, type DashboardView } from "../lib/table-utils";
+import { filterAndSortApplications, parseTableState } from "../lib/table-utils";
 import { type Stage, stages } from "../lib/stages";
 
 export const dynamic = "force-dynamic";
@@ -29,18 +31,6 @@ export const dynamic = "force-dynamic";
 type HomeProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const tabs: { view: DashboardView; label: string }[] = [
-  { view: "table", label: "Table" },
-  { view: "board", label: "Board" },
-  { view: "flow", label: "Flow" },
-  { view: "assistant", label: "Assistant" },
-  { view: "insights", label: "Insights" },
-  { view: "performance", label: "Performance" },
-  { view: "follow-ups", label: "Follow-ups" },
-  { view: "network", label: "Network" },
-  { view: "profile", label: "Profile" }
-];
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = (await searchParams) ?? {};
@@ -69,48 +59,44 @@ export default async function Home({ searchParams }: HomeProps) {
     "last_activity",
     "desc"
   );
+  const todayData = buildTodayData(applications, followUps);
+  const todayLabel = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric"
+  });
 
   return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div className="topbar-brand">
-          <span className="brand-glyph" aria-hidden="true">JT</span>
-          <div>
-            <p className="eyebrow">Personal pipeline</p>
-            <h1>Job Tracker</h1>
-          </div>
-        </div>
-        <div className="topbar-counts">
-          <span>{applications.length} applications</span>
-          <span>{recruiterOutreach.length} outreach</span>
-          <span>{network.contacts.length} contacts</span>
-        </div>
-      </header>
-
+    <div className="app-frame">
+      <Sidebar view={state.view} followUpsDue={followUps.length} />
+      <main className="app-main">
       {status ? <p className="status-message">{statusMessage(status)}</p> : null}
 
-      <DashboardSummary
-        applied={insights.totalApplied}
-        tracked={applications.length}
-        responseRate={insights.rates.response.display}
-        responded={insights.rates.response.numerator}
-        responseDenominator={insights.rates.response.denominator}
-        followUpsDue={followUps.length}
-        appliedTrend={insights.dailyApplications.map((entry) => entry.count)}
-      />
-
-      <nav className="dashboard-tabs" aria-label="Dashboard views">
-        {tabs.map((tab) => (
-          <Link
-            aria-current={state.view === tab.view ? "page" : undefined}
-            className={state.view === tab.view ? "active" : ""}
-            href={tabHref(tab.view)}
-            key={tab.view}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      {state.view === "today" ? (
+        <>
+          <header className="page-header">
+            <div>
+              <p className="eyebrow">{todayLabel}</p>
+              <h1>Today</h1>
+            </div>
+            <div className="topbar-counts">
+              <span>{applications.length} applications</span>
+              <span>{recruiterOutreach.length} outreach</span>
+              <span>{network.contacts.length} contacts</span>
+            </div>
+          </header>
+          <DashboardSummary
+            applied={insights.totalApplied}
+            tracked={applications.length}
+            responseRate={insights.rates.response.display}
+            responded={insights.rates.response.numerator}
+            responseDenominator={insights.rates.response.denominator}
+            followUpsDue={followUps.length}
+            appliedTrend={insights.dailyApplications.map((entry) => entry.count)}
+          />
+          <TodayView data={todayData} />
+        </>
+      ) : null}
 
       {state.view === "table" ? (
         <ApplicationTableView applications={applications} state={state} />
@@ -160,7 +146,8 @@ export default async function Home({ searchParams }: HomeProps) {
           answers={profileData?.answers ?? []}
         />
       ) : null}
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -407,10 +394,6 @@ function RecruiterOutreach({ outreach }: { outreach: ApplicationRow[] }) {
       </div>
     </section>
   );
-}
-
-function tabHref(view: DashboardView) {
-  return view === "table" ? "/" : `/?view=${view}`;
 }
 
 function readSingle(value: string | string[] | undefined) {
