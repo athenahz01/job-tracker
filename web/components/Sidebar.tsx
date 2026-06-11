@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type { DashboardView } from "../lib/table-utils";
 
@@ -18,9 +19,10 @@ type NavGroup = {
 type SidebarProps = {
   view: DashboardView;
   followUpsDue: number;
+  children?: ReactNode;
 };
 
-export default function Sidebar({ view, followUpsDue }: SidebarProps) {
+export default function Sidebar({ view, followUpsDue, children }: SidebarProps) {
   const groups: NavGroup[] = [
     { label: null, items: [{ view: "today", label: "Today" }] },
     {
@@ -56,6 +58,7 @@ export default function Sidebar({ view, followUpsDue }: SidebarProps) {
         <span className="brand-glyph" aria-hidden="true">JT</span>
         <strong>Job Tracker</strong>
       </div>
+      {children}
       <nav className="sidebar-nav" aria-label="Dashboard views">
         {groups.map((group) => (
           <div className="sidebar-group" key={group.label ?? "main"}>

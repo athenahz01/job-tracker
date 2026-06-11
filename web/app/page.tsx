@@ -3,6 +3,7 @@ import Link from "next/link";
 import ApplicationFlowSankey from "../components/ApplicationFlowSankey";
 import ApplicationTableView from "../components/ApplicationTableView";
 import AssistantView from "../components/AssistantView";
+import CommandPalette from "../components/CommandPalette";
 import ContactsSection from "../components/ContactsSection";
 import FitScoreBadge from "../components/FitScoreBadge";
 import FollowUpsView from "../components/FollowUpsView";
@@ -72,9 +73,18 @@ export default async function Home({ searchParams }: HomeProps) {
     : null;
   const peekCloseHref = buildQueryHref(params, { peek: null });
 
+  const paletteApplications = applications.map((application) => ({
+    id: application.id,
+    company: application.company,
+    role: application.role,
+    stage: application.stage as string
+  }));
+
   return (
     <div className="app-frame">
-      <Sidebar view={state.view} followUpsDue={followUps.length} />
+      <Sidebar view={state.view} followUpsDue={followUps.length}>
+        <CommandPalette applications={paletteApplications} />
+      </Sidebar>
       <main className="app-main">
       {status ? <p className="status-message">{statusMessage(status)}</p> : null}
 
@@ -146,7 +156,9 @@ export default async function Home({ searchParams }: HomeProps) {
 
       {state.view === "flow" ? <ApplicationFlowSankey data={applicationFlow} /> : null}
 
-      {state.view === "assistant" ? <AssistantView /> : null}
+      {state.view === "assistant" ? (
+        <AssistantView initialQuestion={readSingle(params.ask) ?? ""} />
+      ) : null}
 
       {state.view === "insights" ? <InsightsView data={insights} /> : null}
 

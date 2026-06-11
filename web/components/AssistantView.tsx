@@ -17,8 +17,8 @@ const examples = [
   "Who in my network should I ping?"
 ];
 
-export default function AssistantView() {
-  const [question, setQuestion] = useState("");
+export default function AssistantView({ initialQuestion = "" }: { initialQuestion?: string }) {
+  const [question, setQuestion] = useState(initialQuestion);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isPending, startTransition] = useTransition();
 
