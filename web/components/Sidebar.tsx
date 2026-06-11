@@ -7,6 +7,7 @@ type NavItem = {
   label: string;
   badge?: number;
   badgeTone?: "danger";
+  match?: DashboardView[];
 };
 
 type NavGroup = {
@@ -25,9 +26,11 @@ export default function Sidebar({ view, followUpsDue }: SidebarProps) {
     {
       label: "Pipeline",
       items: [
-        { view: "table", label: "Applications" },
-        { view: "board", label: "Board" },
-        { view: "flow", label: "Flow" },
+        {
+          view: "table",
+          label: "Applications",
+          match: ["table", "board", "flow"]
+        },
         {
           view: "follow-ups",
           label: "Follow-ups",
@@ -57,10 +60,12 @@ export default function Sidebar({ view, followUpsDue }: SidebarProps) {
         {groups.map((group) => (
           <div className="sidebar-group" key={group.label ?? "main"}>
             {group.label ? <p className="sidebar-group-label">{group.label}</p> : null}
-            {group.items.map((item) => (
+            {group.items.map((item) => {
+              const isActive = item.match ? item.match.includes(view) : view === item.view;
+              return (
               <Link
-                aria-current={view === item.view ? "page" : undefined}
-                className={`sidebar-link${view === item.view ? " active" : ""}`}
+                aria-current={isActive ? "page" : undefined}
+                className={`sidebar-link${isActive ? " active" : ""}`}
                 href={viewHref(item.view)}
                 key={item.view}
               >
@@ -73,7 +78,8 @@ export default function Sidebar({ view, followUpsDue }: SidebarProps) {
                   </span>
                 ) : null}
               </Link>
-            ))}
+              );
+            })}
           </div>
         ))}
       </nav>

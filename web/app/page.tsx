@@ -8,6 +8,7 @@ import FitScoreBadge from "../components/FitScoreBadge";
 import FollowUpsView from "../components/FollowUpsView";
 import InsightsView from "../components/InsightsView";
 import PerformanceView from "../components/PerformanceView";
+import PeekPanel from "../components/PeekPanel";
 import ProfileView from "../components/ProfileView";
 import Sidebar from "../components/Sidebar";
 import TodayView, { buildTodayData } from "../components/TodayView";
@@ -23,7 +24,7 @@ import {
 } from "../lib/dashboard-data";
 import { timeAgo } from "../lib/format";
 import { priorityClass, stageClass } from "../lib/style-utils";
-import { filterAndSortApplications, parseTableState } from "../lib/table-utils";
+import { filterAndSortApplications, parseTableState, type DashboardView } from "../lib/table-utils";
 import { type Stage, stages } from "../lib/stages";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,11 @@ export default async function Home({ searchParams }: HomeProps) {
     month: "long",
     day: "numeric"
   });
+  const peekId = readSingle(params.peek);
+  const peekApplication = peekId
+    ? (applications.find((application) => application.id === peekId) ?? null)
+    : null;
+  const peekCloseHref = buildQueryHref(params, { peek: null });
 
   return (
     <div className="app-frame">
@@ -98,15 +104,44 @@ export default async function Home({ searchParams }: HomeProps) {
         </>
       ) : null}
 
+      {state.view === "table" || state.view === "board" || state.view === "flow" ? (
+        <PipelineSwitcher view={state.view} />
+      ) : null}
+
       {state.view === "table" ? (
-        <ApplicationTableView applications={applications} state={state} />
+        peekApplication ? (
+          <div className="peek-layout">
+            <div className="peek-main">
+              <ApplicationTableView applications={applications} state={state} />
+            </div>
+            <PeekPanel application={peekApplication} closeHref={peekCloseHref} />
+          </div>
+        ) : (
+          <ApplicationTableView applications={applications} state={state} />
+        )
       ) : null}
 
       {state.view === "board" ? (
-        <>
-          <BoardFilters state={state} />
-          <ApplicationBoard applications={boardApplications} />
-        </>
+        peekApplication ? (
+          <div className="peek-layout">
+            <div className="peek-main">
+              <BoardFilters state={state} />
+              <ApplicationBoard
+                applications={boardApplications}
+                cardHref={(id) => buildQueryHref(params, { peek: id })}
+              />
+            </div>
+            <PeekPanel application={peekApplication} closeHref={peekCloseHref} />
+          </div>
+        ) : (
+          <>
+            <BoardFilters state={state} />
+            <ApplicationBoard
+              applications={boardApplications}
+              cardHref={(id) => buildQueryHref(params, { peek: id })}
+            />
+          </>
+        )
       ) : null}
 
       {state.view === "flow" ? <ApplicationFlowSankey data={applicationFlow} /> : null}
@@ -287,7 +322,36 @@ function BoardFilters({ state }: { state: ReturnType<typeof parseTableState> }) 
   );
 }
 
-function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) {
+function PipelineSwitcher({ view }: { view: DashboardView }) {
+  const options: { view: DashboardView; label: string }[] = [
+    { view: "table", label: "List" },
+    { view: "board", label: "Board" },
+    { view: "flow", label: "Flow" }
+  ];
+
+  return (
+    <nav className="pipeline-switcher" aria-label="Pipeline views">
+      {options.map((option) => (
+        <Link
+          aria-current={view === option.view ? "page" : undefined}
+          className={view === option.view ? "active" : ""}
+          href={`/?view=${option.view}`}
+          key={option.view}
+        >
+          {option.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+function ApplicationBoard({
+  applications,
+  cardHref
+}: {
+  applications: ApplicationRow[];
+  cardHref: (id: string) => string;
+}) {
   const grouped = new Map<Stage, ApplicationRow[]>();
   for (const stage of stages) {
     grouped.set(stage, []);
@@ -311,8 +375,9 @@ function ApplicationBoard({ applications }: { applications: ApplicationRow[] }) 
                 stageApplications.map((application) => (
                   <Link
                     className={`application-card board-card-${stageClass(application.stage)} ${application.priority ? `board-${priorityClass(application.priority)}` : ""}`}
-                    href={`/applications/${application.id}`}
+                    href={cardHref(application.id)}
                     key={application.id}
+                    scroll={false}
                   >
                     <div>
                       <h3>{application.company}</h3>
@@ -398,6 +463,28 @@ function RecruiterOutreach({ outreach }: { outreach: ApplicationRow[] }) {
 
 function readSingle(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function buildQueryHref(
+  params: Record<string, string | string[] | undefined>,
+  overrides: Record<string, string | null>
+) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    const single = Array.isArray(value) ? value[0] : value;
+    if (single !== undefined) {
+      search.set(key, single);
+    }
+  }
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === null) {
+      search.delete(key);
+    } else {
+      search.set(key, value);
+    }
+  }
+  const query = search.toString();
+  return query ? `/?${query}` : "/";
 }
 
 function statusMessage(status: string) {

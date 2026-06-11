@@ -188,11 +188,11 @@ export default function ApplicationTableView({ applications, state }: Applicatio
                   key={application.id}
                   role="link"
                   tabIndex={0}
-                  onClick={() => router.push(`/applications/${application.id}`)}
+                  onClick={() => router.push(peekHref(searchParams, application.id), { scroll: false })}
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      router.push(`/applications/${application.id}`);
+                      router.push(peekHref(searchParams, application.id), { scroll: false });
                     }
                   }}
                 >
@@ -267,6 +267,13 @@ export default function ApplicationTableView({ applications, state }: Applicatio
       </div>
     </section>
   );
+}
+
+function peekHref(searchParams: { toString(): string }, id: string) {
+  const params = new URLSearchParams(searchParams.toString());
+  params.set("view", "table");
+  params.set("peek", id);
+  return `/?${params.toString()}`;
 }
 
 function sortHref(searchParams: { toString(): string }, key: SortKey, state: TableState) {
