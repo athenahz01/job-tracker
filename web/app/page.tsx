@@ -96,6 +96,7 @@ export default async function Home({ searchParams }: HomeProps) {
         responded={insights.rates.response.numerator}
         responseDenominator={insights.rates.response.denominator}
         followUpsDue={followUps.length}
+        appliedTrend={insights.dailyApplications.map((entry) => entry.count)}
       />
 
       <nav className="dashboard-tabs" aria-label="Dashboard views">
@@ -169,7 +170,8 @@ function DashboardSummary({
   responseRate,
   responded,
   responseDenominator,
-  followUpsDue
+  followUpsDue,
+  appliedTrend
 }: {
   applied: number;
   tracked: number;
@@ -177,16 +179,33 @@ function DashboardSummary({
   responded: number;
   responseDenominator: number;
   followUpsDue: number;
+  appliedTrend: number[];
 }) {
   return (
     <section className="summary-bar" aria-label="Dashboard summary">
-      <div className="summary-feature">
-        <span>Applied</span>
+      <div className="summary-card accent-teal">
+        <div className="summary-head">
+          <span className="summary-label">Applied</span>
+          <span className="summary-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 2 11 13" />
+              <path d="M22 2 15 22l-4-9-9-4 20-7z" />
+            </svg>
+          </span>
+        </div>
         <strong>{applied}</strong>
+        <Sparkline values={appliedTrend} />
         <p className="summary-context">{tracked} tracked in total</p>
       </div>
-      <div>
-        <span>Response rate</span>
+      <div className="summary-card accent-amber">
+        <div className="summary-head">
+          <span className="summary-label">Response rate</span>
+          <span className="summary-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </span>
+        </div>
         <strong>{responseRate}</strong>
         <p className="summary-context">
           {responseDenominator > 0
@@ -194,14 +213,50 @@ function DashboardSummary({
             : "No replies yet"}
         </p>
       </div>
-      <div>
-        <span>Follow-ups due</span>
+      <div className="summary-card accent-green">
+        <div className="summary-head">
+          <span className="summary-label">Follow-ups due</span>
+          <span className="summary-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          </span>
+        </div>
         <strong>{followUpsDue}</strong>
         <p className="summary-context">
           {followUpsDue === 0 ? "You are all caught up" : "Needs your attention"}
         </p>
       </div>
     </section>
+  );
+}
+
+function Sparkline({ values }: { values: number[] }) {
+  const cleaned = values.filter((value) => Number.isFinite(value));
+  if (cleaned.length < 2) {
+    return null;
+  }
+
+  const width = 120;
+  const height = 22;
+  const max = Math.max(...cleaned, 1);
+  const points = cleaned
+    .map((value, index) => {
+      const x = (index / (cleaned.length - 1)) * width;
+      const y = height - (value / max) * height;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      className="summary-spark"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <polyline points={points} fill="none" stroke="var(--accent-bright)" strokeWidth="2" />
+    </svg>
   );
 }
 
