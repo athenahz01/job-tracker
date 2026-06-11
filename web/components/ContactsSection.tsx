@@ -177,7 +177,7 @@ function ReferralPipeline({ contacts }: { contacts: Array<ContactRow | ContactWi
   return (
     <div className="referral-pipeline" aria-label="Referral pipeline">
       {stages.map((stage) => (
-        <section className="referral-stage" key={stage.stage}>
+        <section className={`referral-stage ${outreachClass(stage.stage)}`} key={stage.stage}>
           <div>
             <strong>{outreachStageLabel(stage.stage)}</strong>
             <span>{stage.contacts.length}</span>

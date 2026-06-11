@@ -1668,6 +1668,37 @@ tr[tabindex]:focus-visible {
   padding: 12px;
 }
 
+.referral-stage.outreach-reached {
+  background: #f2f8fd;
+  border-color: #d4e6f6;
+}
+
+.referral-stage.outreach-replied {
+  background: #fffdf2;
+  border-color: #f0e4bf;
+}
+
+.referral-stage.outreach-referred {
+  background: #f3faf5;
+  border-color: #cfe8d6;
+}
+
+.referral-stage.outreach-to-reach strong {
+  color: #4f6370;
+}
+
+.referral-stage.outreach-reached strong {
+  color: #245f93;
+}
+
+.referral-stage.outreach-replied strong {
+  color: #8a6500;
+}
+
+.referral-stage.outreach-referred strong {
+  color: #236b38;
+}
+
 .referral-stage > div:first-child {
   display: flex;
   align-items: center;
@@ -1771,6 +1802,41 @@ tr[tabindex]:focus-visible {
 
 .who-can-help-panel {
   display: grid;
+  background: var(--panel-ink);
+  border-color: var(--panel-ink);
+}
+
+.who-can-help-panel .eyebrow {
+  color: #7fc4b3;
+}
+
+.who-can-help-panel h2,
+.who-can-help-panel h3 {
+  color: #eef9f4;
+}
+
+.who-can-help-panel .empty-state {
+  color: #a7d4c8;
+}
+
+.who-can-help-panel .warm-path-card {
+  background: #1b524c;
+  border-color: #2a625b;
+}
+
+.who-can-help-panel .warm-path-card p,
+.who-can-help-panel .muted {
+  color: #a7d4c8;
+}
+
+.who-can-help-panel .contact-avatar {
+  background: #2f8f80;
+  color: #eef9f4;
+}
+
+.who-can-help-panel .tag-chip {
+  background: #27635b;
+  color: #cdeae0;
 }
 
 .warm-path-list,
@@ -2160,6 +2226,18 @@ tr[tabindex]:focus-visible {
   margin: 16px auto 0;
 }
 
+.assistant-examples .secondary-button {
+  border-radius: var(--radius-pill);
+  border-color: #c4ddd4;
+  background: var(--accent-tint);
+  color: var(--accent-dark);
+}
+
+.assistant-examples .secondary-button:hover {
+  background: #d3e9e1;
+  border-color: #a9d2c5;
+}
+
 .assistant-skeleton {
   display: grid;
   gap: 8px;
@@ -2297,6 +2375,18 @@ tr[tabindex]:focus-visible {
 .requirement-missing > span:last-child {
   background: var(--danger-bg);
   color: var(--danger);
+}
+
+.requirement-met .requirement-marker {
+  background: var(--success);
+}
+
+.requirement-partial .requirement-marker {
+  background: var(--warning);
+}
+
+.requirement-missing .requirement-marker {
+  background: #b7b0a3;
 }
 
 .tailored-resume-stack {
