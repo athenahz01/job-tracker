@@ -34,6 +34,84 @@
     autofillButton.addEventListener("click", handleAutofillClick);
     optionsButton.addEventListener("click", () => chrome.runtime.openOptionsPage());
     manualForm.addEventListener("submit", handleManualSubmit);
+
+    if (ready) {
+      autoDetect();
+    }
+  }
+
+  async function autoDetect() {
+    const detectedCard = document.getElementById("detected-card");
+    setStatus("Scanning this page...", "");
+
+    try {
+      const capture = await scrapeActiveTab();
+      if (!capture || (!capture.company && !capture.role)) {
+        clearStatus();
+        return;
+      }
+
+      pendingCapture = capture;
+      pendingSource = capture.genericSubmitted ? "extension_heuristic" : "extension";
+      pendingStage = capture.confirmation || capture.genericSubmitted ? "Applied" : "Saved";
+      renderDetectedCard(detectedCard, capture, pendingStage);
+      saveButton.hidden = true;
+      clearStatus();
+    } catch {
+      clearStatus();
+    }
+  }
+
+  function renderDetectedCard(card, capture, stage) {
+    card.innerHTML = "";
+    card.hidden = false;
+
+    const label = document.createElement("p");
+    label.className = "detected-label";
+    label.textContent =
+      stage === "Applied" ? "Looks submitted on this page" : "Detected on this page";
+    card.append(label);
+
+    const company = document.createElement("strong");
+    company.className = "detected-company";
+    company.textContent = shared.trimText(capture.company, 80) || "Unknown company";
+    card.append(company);
+
+    const metaParts = [capture.role, capture.location, capture.salary]
+      .map((value) => shared.trimText(value, 60))
+      .filter(Boolean);
+    if (metaParts.length) {
+      const meta = document.createElement("p");
+      meta.className = "detected-meta";
+      meta.textContent = metaParts.join(" · ");
+      card.append(meta);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "detected-actions";
+
+    const save = document.createElement("button");
+    save.type = "button";
+    save.textContent = stage === "Applied" ? "Mark as applied" : "Save to pipeline";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      await postCapture(pendingCapture, pendingSource, pendingStage);
+      save.disabled = false;
+    });
+    actions.append(save);
+
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "secondary";
+    edit.textContent = "Edit details";
+    edit.addEventListener("click", () => {
+      populateForm(capture, pendingStage);
+      manualForm.hidden = false;
+      edit.disabled = true;
+    });
+    actions.append(edit);
+
+    card.append(actions);
   }
 
   async function handleSaveClick() {
