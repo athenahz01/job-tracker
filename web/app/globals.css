@@ -1822,7 +1822,7 @@ tr[tabindex]:focus-visible {
 
 .contact-card-actions {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
 
@@ -2509,15 +2509,20 @@ tr[tabindex]:focus-visible {
 }
 
 .compact-draft-action {
-  min-width: 260px;
+  min-width: 0;
   border: 0;
   background: transparent;
-  padding: 0 0 10px;
+  padding: 0;
 }
 
 .compact-draft-action .draft-action-form {
   display: grid;
   gap: 8px;
+}
+
+.compact-draft-action .secondary-button {
+  width: 100%;
+  justify-content: center;
 }
 
 .copy-panel {

@@ -65,12 +65,14 @@ export default function DraftActionPanel({
         {contactId ? <input type="hidden" name="contactId" value={contactId} /> : null}
         {variant ? <input type="hidden" name="variant" value={variant} /> : null}
         {question ? <input type="hidden" name="question" value={question} /> : null}
-        <div>
-          <strong>{label}</strong>
-          {description ? <p className="muted">{description}</p> : null}
-        </div>
+        {compact ? null : (
+          <div>
+            <strong>{label}</strong>
+            {description ? <p className="muted">{description}</p> : null}
+          </div>
+        )}
         <button className="secondary-button" type="submit" disabled={isPending}>
-          {isPending ? "Drafting..." : "Draft"}
+          {isPending ? "Drafting..." : compact ? label : "Draft"}
         </button>
       </form>
 
