@@ -7,8 +7,8 @@
   --text: #1a2421;
   --muted: #6b746f;
   --faint: #8a9089;
-  --line: #ddd8cb;
-  --line-strong: #c7ccc3;
+  --line: #e2ddd0;
+  --line-strong: #cdd2c9;
   --accent: #1f6f67;
   --accent-dark: #15433f;
   --accent-bright: #2f8f80;
@@ -55,8 +55,10 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+    var(--font-inter), Inter, ui-sans-serif, system-ui, -apple-system,
+    BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   font-size: 14px;
   font-weight: 400;
   line-height: 1.6;
@@ -158,7 +160,7 @@ tr[tabindex]:focus-visible {
 
 .topbar-counts span,
 .badge {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--panel);
   padding: 2px 8px;
@@ -193,7 +195,7 @@ tr[tabindex]:focus-visible {
 .assistant-section,
 .login-box {
   background: var(--panel);
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow);
 }
@@ -213,7 +215,7 @@ tr[tabindex]:focus-visible {
   padding: 4px;
   overflow-x: auto;
   background: var(--panel);
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   box-shadow: var(--shadow-soft);
   scrollbar-width: thin;
@@ -234,12 +236,12 @@ tr[tabindex]:focus-visible {
 .dashboard-tabs a:hover {
   background: var(--panel-soft);
   color: var(--text);
-  transform: none;
 }
 
 .dashboard-tabs a.active {
   background: var(--accent);
   color: #ffffff;
+  box-shadow: 0 1px 2px rgba(21, 67, 63, 0.25);
 }
 
 .summary-bar {
@@ -253,7 +255,7 @@ tr[tabindex]:focus-visible {
   display: grid;
   align-content: start;
   gap: 8px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--panel);
   box-shadow: var(--shadow-soft);
@@ -343,7 +345,7 @@ tr[tabindex]:focus-visible {
 }
 
 .flow-count {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--panel-soft);
   color: var(--muted);
@@ -365,7 +367,7 @@ tr[tabindex]:focus-visible {
   min-height: 200px;
   gap: 16px;
   overflow-x: auto;
-  border-bottom: 0.5px solid var(--line-strong);
+  border-bottom: 1px solid var(--line-strong);
   padding: 12px 0 0;
 }
 
@@ -449,7 +451,7 @@ tr[tabindex]:focus-visible {
 .insight-stat,
 .insight-rate-card,
 .insight-panel {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
 }
@@ -548,7 +550,7 @@ tr[tabindex]:focus-visible {
 .performance-summary-card {
   display: grid;
   gap: 8px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 16px;
@@ -581,7 +583,7 @@ tr[tabindex]:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-soft);
   padding: 12px;
@@ -603,7 +605,7 @@ tr[tabindex]:focus-visible {
 
 .performance-table-wrap {
   overflow-x: auto;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
 }
 
@@ -699,7 +701,8 @@ tr[tabindex]:focus-visible {
 
 .funnel-step-top span {
   color: var(--accent-dark);
-  font-weight: 800;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .funnel-bar-track {
@@ -848,7 +851,7 @@ tr[tabindex]:focus-visible {
 .field select,
 .field textarea {
   min-width: 190px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: #fff;
   color: var(--text);
@@ -898,20 +901,20 @@ tr[tabindex]:focus-visible {
 }
 
 .primary-button {
-  border: 0.5px solid var(--accent);
+  border: 1px solid var(--accent);
   background: var(--accent);
   color: #fff;
 }
 
 .secondary-button,
 .secondary-link {
-  border: 0.5px solid var(--line-strong);
+  border: 1px solid var(--line-strong);
   background: transparent;
   color: var(--text);
 }
 
 .danger-button {
-  border: 0.5px solid var(--danger);
+  border: 1px solid var(--danger);
   background: var(--danger);
   color: #fff;
 }
@@ -921,7 +924,6 @@ tr[tabindex]:focus-visible {
 .danger-button:hover,
 .secondary-link:hover,
 .quick-filters a:hover {
-  transform: translateY(-1px);
   box-shadow: var(--shadow-soft);
 }
 
@@ -942,7 +944,7 @@ tr[tabindex]:focus-visible {
   background: transparent;
   color: var(--danger);
   cursor: pointer;
-  font-weight: 800;
+  font-weight: 600;
   padding: 4px 0;
 }
 
@@ -1000,7 +1002,7 @@ tr[tabindex]:focus-visible {
 }
 
 .quick-filters a {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--accent-dark);
@@ -1018,7 +1020,7 @@ tr[tabindex]:focus-visible {
 
 .table-scroll {
   overflow-x: auto;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
 }
@@ -1076,14 +1078,6 @@ tr[tabindex]:focus-visible {
 
 .applications-table tbody tr:focus-visible {
   background: var(--accent-tint);
-}
-
-.applications-table tbody tr:hover,
-.contacts-table tbody tr:hover,
-.application-card:hover,
-.outreach-row:hover,
-.followup-item:hover {
-  transform: translateY(-1px);
 }
 
 .applications-table td:nth-child(1),
@@ -1283,7 +1277,7 @@ tr[tabindex]:focus-visible {
 
 .stage-column {
   min-height: 420px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-soft);
 }
@@ -1292,7 +1286,7 @@ tr[tabindex]:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 0.5px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 12px;
 }
 
@@ -1318,7 +1312,7 @@ tr[tabindex]:focus-visible {
 .outreach-row {
   display: grid;
   gap: 8px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel);
   padding: 12px;
@@ -1364,7 +1358,7 @@ tr[tabindex]:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-top: 0.5px solid var(--line);
+  border-top: 1px solid var(--line);
   padding-top: 8px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1373,7 +1367,7 @@ tr[tabindex]:focus-visible {
 .application-card:hover,
 .outreach-row:hover {
   border-color: var(--line-strong);
-  box-shadow: none;
+  box-shadow: var(--shadow-soft);
 }
 
 .application-card h3,
@@ -1425,7 +1419,7 @@ tr[tabindex]:focus-visible {
 .empty-column,
 .empty-state {
   margin: 0;
-  border: 0.5px dashed var(--line-strong);
+  border: 1px dashed var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--panel-soft);
   padding: 12px;
@@ -1474,7 +1468,7 @@ tr[tabindex]:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 16px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 12px 16px;
@@ -1491,7 +1485,7 @@ tr[tabindex]:focus-visible {
 
 .followup-item:hover {
   border-color: var(--line-strong);
-  box-shadow: none;
+  box-shadow: var(--shadow-soft);
 }
 
 .followup-item h3 {
@@ -1545,17 +1539,23 @@ tr[tabindex]:focus-visible {
   display: inline-flex;
   margin-bottom: 14px;
   color: var(--accent-dark);
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 13px;
   text-decoration: none;
+}
+
+.back-link:hover {
+  color: var(--accent);
 }
 
 .status-message {
   margin: 0 0 14px;
   border: 1px solid #b7d7c8;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: #edf8f1;
   padding: 10px 12px;
   color: var(--accent-dark);
+  font-size: 13px;
 }
 
 .detail-card {
@@ -1584,9 +1584,10 @@ tr[tabindex]:focus-visible {
 }
 
 .detail-grid dt {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 700;
+  color: var(--faint);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
 }
 
@@ -1627,7 +1628,7 @@ tr[tabindex]:focus-visible {
   display: grid;
   gap: 12px;
   margin-top: 14px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-warm);
   padding: 14px;
@@ -1651,7 +1652,7 @@ tr[tabindex]:focus-visible {
 }
 
 .referral-cheat-grid article {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 12px;
@@ -1675,7 +1676,7 @@ tr[tabindex]:focus-visible {
 .referral-stage {
   display: grid;
   gap: 10px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-soft);
   padding: 12px;
@@ -1757,7 +1758,7 @@ tr[tabindex]:focus-visible {
   display: grid;
   align-content: start;
   gap: 12px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 16px;
@@ -1831,7 +1832,7 @@ tr[tabindex]:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-top: 0.5px solid var(--line);
+  border-top: 1px solid var(--line);
   padding-top: 10px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1885,7 +1886,7 @@ tr[tabindex]:focus-visible {
 
 .warm-path-card {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
   padding: 14px;
 }
@@ -1937,7 +1938,7 @@ tr[tabindex]:focus-visible {
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.44fr);
   gap: 14px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
   padding: 14px;
 }
@@ -1973,7 +1974,7 @@ tr[tabindex]:focus-visible {
 .posting-breakdown-card,
 .posting-raw-notes {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: #fff;
   padding: 14px;
 }
@@ -2030,7 +2031,7 @@ tr[tabindex]:focus-visible {
   position: relative;
   display: grid;
   gap: 9px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 14px;
@@ -2063,7 +2064,7 @@ tr[tabindex]:focus-visible {
 
 .timeline-meta a {
   color: var(--accent-dark);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .tracker-form,
@@ -2128,7 +2129,7 @@ tr[tabindex]:focus-visible {
 }
 
 .answer-item {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 12px;
@@ -2173,7 +2174,7 @@ tr[tabindex]:focus-visible {
 
 .inline-editor {
   margin-top: 14px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-warm);
   padding: 12px;
@@ -2208,7 +2209,7 @@ tr[tabindex]:focus-visible {
 .assistant-empty,
 .draft-action,
 .copy-panel {
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 12px;
@@ -2317,7 +2318,7 @@ tr[tabindex]:focus-visible {
 }
 
 .ai-result-grid div {
-  border-top: 0.5px solid var(--line);
+  border-top: 1px solid var(--line);
   padding-top: 12px;
 }
 
@@ -2340,7 +2341,7 @@ tr[tabindex]:focus-visible {
   display: grid;
   gap: 12px;
   width: 100%;
-  border-top: 0.5px solid var(--line);
+  border-top: 1px solid var(--line);
   padding-top: 14px;
 }
 
@@ -2363,7 +2364,7 @@ tr[tabindex]:focus-visible {
   grid-template-columns: 12px minmax(0, 1fr) auto;
   align-items: start;
   gap: 10px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: #fff;
   padding: 12px;
@@ -2434,7 +2435,7 @@ tr[tabindex]:focus-visible {
 .resume-diff {
   overflow: auto;
   max-height: 520px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--panel-soft);
   padding: 8px;
@@ -2451,7 +2452,7 @@ tr[tabindex]:focus-visible {
 
 .resume-diff-line span {
   color: var(--muted);
-  font-weight: 900;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -2533,7 +2534,7 @@ tr[tabindex]:focus-visible {
 .copy-panel textarea {
   width: 100%;
   min-height: 130px;
-  border: 0.5px solid var(--line);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   padding: 10px;
   resize: vertical;
@@ -2586,7 +2587,7 @@ tr[tabindex]:focus-visible {
 
 .form-error {
   margin: 0;
-  border: 0.5px solid var(--danger-bg);
+  border: 1px solid var(--danger-bg);
   border-radius: var(--radius-sm);
   background: var(--danger-bg);
   padding: 8px 10px;
@@ -2643,16 +2644,4 @@ tr[tabindex]:focus-visible {
     animation-iteration-count: 1 !important;
   }
 
-  .primary-button:hover,
-  .secondary-button:hover,
-  .danger-button:hover,
-  .secondary-link:hover,
-  .quick-filters a:hover,
-  .applications-table tbody tr:hover,
-  .contacts-table tbody tr:hover,
-  .application-card:hover,
-  .outreach-row:hover,
-  .followup-item:hover {
-    transform: none;
-  }
 }
